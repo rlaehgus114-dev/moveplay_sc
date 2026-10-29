@@ -140,6 +140,10 @@ img.portrait{width:100%;height:auto;object-fit:cover;background:#000}
 .gallery img{width:100%;height:auto;border-radius:18px;display:block}
 .gallery figcaption{font-size:14px;color:var(--muted);margin-top:8px}
 #visit .visit article{background:var(--surface)}
+.price-call{margin-top:32px;background:var(--green-soft);border:2px solid var(--green);border-radius:22px;padding:32px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px}
+.price-call .pc-main{margin:0;font-family:var(--f-display);font-weight:400;font-size:clamp(28px,4.6vw,42px);line-height:1.25;color:var(--green-deep);letter-spacing:.02em;text-wrap:balance}
+.price-call .pc-sub{margin:0;font-size:clamp(16px,2vw,18px);line-height:1.7;color:var(--ink);font-weight:500}
+.price-call .btn{margin-top:6px}
 .grp-label{font-size:15px;font-weight:800;margin:36px 0 0;color:var(--muted)}
 .programs.two{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px}
 .programs.three{margin-top:14px}
@@ -320,7 +324,11 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px}
           <p>스윙으로 뒷라인과 체력을, 겟업으로 균형과 코어를. 몸치도 하나씩 쪼개서 배워요.</p>
         </article>
       </div>
-      <p class="price-note"><strong>이용 금액은 상담 후 안내해 드려요.</strong> 몸 상태와 목표, 원하는 횟수를 듣고 맞는 수업과 금액을 함께 정해요.</p>
+      <div class="price-call">
+        <p class="pc-main">이용 금액은<br>상담 후 안내해 드려요</p>
+        <p class="pc-sub">몸 상태와 목표, 원하는 횟수를 듣고<br>맞는 수업과 금액을 함께 정해요.</p>
+        <a class="btn primary" href="https://forms.gle/qYyXMGc3ex6Xfx6TA" target="_blank" rel="noopener">상담 신청하고 금액 안내받기</a>
+      </div>
     </div>
   </section>
 
