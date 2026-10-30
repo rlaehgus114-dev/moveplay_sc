@@ -73,8 +73,17 @@ const daysSince = s => s ? Math.floor((new Date(today()) - new Date(s)) / 864000
 function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('on'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'),2200); }
 
 /* ---------- 1. Firebase 설정 (이 기기 브라우저에만 저장) ---------- */
-let cfg = null;
-try { cfg = JSON.parse(localStorage.getItem('mp_fb_cfg') || 'null'); } catch(e) {}
+// 웹용 Firebase 설정값 (공개용 식별값 — 데이터 접근은 보안 규칙으로 관리자 계정만 허용)
+const DEFAULT_CFG = {
+  apiKey: 'AIzaSyAgRa8fj3qJG9SWM_Gyeml_lay6y91HKC8',
+  authDomain: 'moveplay-suncheon.firebaseapp.com',
+  projectId: 'moveplay-suncheon',
+  storageBucket: 'moveplay-suncheon.firebasestorage.app',
+  messagingSenderId: '321589961889',
+  appId: '1:321589961889:web:2282627a7b966d9109fce0'
+};
+let cfg = DEFAULT_CFG;
+try { cfg = JSON.parse(localStorage.getItem('mp_fb_cfg') || 'null') || DEFAULT_CFG; } catch(e) {}
 if (!cfg) { setupScreen(); } else { boot(cfg).catch(e => { app.innerHTML = `<div class="card">시작 오류: ${esc(e.message)}<br><br><button class="btn ghost" id="reset">설정 다시 입력</button></div>`; $('#reset').onclick = () => { try{localStorage.removeItem('mp_fb_cfg')}catch(e){} location.reload(); }; }); }
 
 function setupScreen(){
