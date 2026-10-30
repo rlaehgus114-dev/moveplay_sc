@@ -53,7 +53,8 @@ dialog::backdrop{background:rgba(0,0,0,.4)}
 <header><h1>무플 관리자</h1><button id="btnOut" class="hidden">로그아웃</button></header>
 <nav id="nav" class="hidden">
   <button data-t="check" class="on">출석</button>
-  <button data-t="members">회원·이용권</button>
+  <button data-t="book">예약</button>
+  <button data-t="members">회원</button>
   <button data-t="log">기록</button>
   <button data-t="more">설정</button>
 </nav>
@@ -70,6 +71,18 @@ const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const today = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
 const daysSince = s => s ? Math.floor((new Date(today()) - new Date(s)) / 86400000) : null;
+const addDays = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const WD = ['일', '월', '화', '수', '목', '금', '토'];
+const wdOf = s => new Date(s + 'T00:00:00Z').getUTCDay();
+const fmtDay = s => `${+s.slice(5, 7)}/${+s.slice(8)}(${WD[wdOf(s)]})`;
+// 그룹 수업 시간표 (요일 번호: 0=일 ~ 6=토)
+const GROUP_SLOTS = {
+  2: [['10:00', '케틀벨 그룹 PT']],
+  3: [['18:00', 'Move ON'], ['19:00', 'Move ON'], ['20:00', 'Move ON']],
+  5: [['10:00', '케틀벨 그룹 PT']],
+  6: [['10:00', '스윙·겟업'], ['11:00', 'Move ON'], ['12:00', 'Move ON']]
+};
+const GROUP_CAP = 6;  // 그룹 수업 정원 (넘으면 경고만)
 function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('on'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'),2200); }
 
 /* ---------- 1. Firebase 설정 (이 기기 브라우저에만 저장) ---------- */
@@ -102,7 +115,7 @@ function setupScreen(){
 }
 
 /* ---------- 2. 시작 ---------- */
-let fb, db, auth, state = { passes: [], logs: [], tab: 'check', filter: '전체', q: '' };
+let fb, db, auth, state = { passes: [], logs: [], books: [], tab: 'check', filter: '전체', q: '', bookDate: null };
 
 async function boot(cfg){
   const [{ initializeApp }, A, F] = await Promise.all([
@@ -133,6 +146,8 @@ async function loadAll(){
   const since = new Date(); since.setDate(since.getDate() - 120);
   const ls = await fb.getDocs(fb.query(fb.collection(db, 'attendance'), fb.where('date', '>=', since.toISOString().slice(0, 10)), fb.orderBy('date', 'desc'), fb.limit(500)));
   state.logs = ls.docs.map(d => ({ id: d.id, ...d.data() }));
+  const bs = await fb.getDocs(fb.query(fb.collection(db, 'bookings'), fb.where('date', '>=', addDays(today(), -7))));
+  state.books = bs.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 /* ---------- 계산 ---------- */
@@ -154,14 +169,81 @@ document.querySelectorAll('#nav button').forEach(b => b.onclick = () => {
   state.tab = b.dataset.t; render();
 });
 
-function render(){ ({ check: renderCheck, members: renderMembers, log: renderLog, more: renderMore })[state.tab](); window.scrollTo(0, 0); }
+function render(){ ({ check: renderCheck, book: renderBook, members: renderMembers, log: renderLog, more: renderMore })[state.tab](); window.scrollTo(0, 0); }
+
+/* ---------- 예약 ---------- */
+function renderBook(){
+  const d = state.bookDate || (state.bookDate = addDays(today(), 1));
+  const list = state.books.filter(b => b.date === d).sort((a, b) => a.time.localeCompare(b.time));
+  const slots = (GROUP_SLOTS[wdOf(d)] || []).map(([t, n]) => ({ t, n }));
+  const times = [...new Set([...slots.map(s => s.t), ...list.map(b => b.time)])].sort();
+  const byId = Object.fromEntries(state.passes.map(p => [p.id, p]));
+  app.innerHTML = `
+  <div class="toolbar">
+    <button class="btn ghost" id="prev">◀</button>
+    <input type="date" id="bd" value="${d}">
+    <button class="btn ghost" id="next">▶</button>
+  </div>
+  <div class="row" style="margin-bottom:10px"><div class="grow name">${fmtDay(d)} 예약 ${list.length}명</div><button class="btn" id="addB">+ 예약</button></div>
+  <p class="hint">수업 전날 저녁 8시에 예약된 회원에게 '수업 전날 안내' 알림톡이 자동으로 나가요.</p>
+  ${times.length ? times.map(t => {
+    const s = slots.find(x => x.t === t); const bs = list.filter(b => b.time === t);
+    const over = s && bs.length > GROUP_CAP;
+    return `<div class="card"><div class="row"><div class="grow"><span class="name">${t}</span> <span class="sub">${s ? esc(s.n) + ' · ' + bs.length + '/' + GROUP_CAP + '명' : '개인 PT'}</span>${over ? '<span class="tag red">정원 초과</span>' : ''}</div>
+      <button class="btn ghost" data-addt="${t}" style="padding:6px 10px;font-size:13px">+ 추가</button></div>
+      ${bs.map(b => { const p = byId[b.passId]; return `<div class="row" style="padding:8px 0;border-top:1px solid var(--line)"><div class="grow">${esc(b.name)} <span class="sub">${esc(p?.cls || '')}${p && !p.phone ? ' · <b style="color:var(--red)">번호 없음</b>' : ''}${b.notified ? ' · 알림 발송됨' : ''}</span></div><button class="btn red" data-delb="${b.id}" style="padding:6px 10px;font-size:13px">취소</button></div>`; }).join('')}
+    </div>`; }).join('') : '<div class="center hint">이날은 정해진 그룹 수업이 없어요. + 예약으로 PT를 넣어 주세요.</div>'}`;
+  $('#bd').onchange = e => { state.bookDate = e.target.value; renderBook(); };
+  $('#prev').onclick = () => { state.bookDate = addDays(d, -1); renderBook(); };
+  $('#next').onclick = () => { state.bookDate = addDays(d, 1); renderBook(); };
+  $('#addB').onclick = () => addBooking(d, '');
+  app.querySelectorAll('[data-addt]').forEach(b => b.onclick = () => addBooking(d, b.dataset.addt));
+  app.querySelectorAll('[data-delb]').forEach(b => b.onclick = () => delBooking(b.dataset.delb));
+}
+
+function addBooking(date, time){
+  const act = state.passes.filter(p => !p.archived && p.kind !== '금액권').sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+  const slot = (GROUP_SLOTS[wdOf(date)] || []).find(s => s[0] === time);
+  dialog(`
+    <div class="name">${fmtDay(date)} 예약 추가</div>
+    <label>시간</label><input id="b_time" type="time" step="1800" value="${time || '10:00'}">
+    <label>회원 (여러 명 선택 가능)</label>
+    <input id="b_q" placeholder="이름 검색" style="margin-bottom:6px">
+    <div id="b_list" class="hist" style="max-height:260px">${act.map(p => `<label class="row" data-n="${esc(p.name)}" style="margin:0;padding:8px 0;border-bottom:1px solid var(--line);color:var(--ink);font-size:15px"><input type="checkbox" value="${p.id}" style="width:auto"> <span class="grow">${esc(p.name)} <span class="sub">${esc(p.cls)} · 남음 ${left(p)}</span></span></label>`).join('')}</div>
+    ${slot ? `<p class="hint">${esc(slot[1])} 수업 시간이에요.</p>` : ''}
+    <div class="row" style="margin-top:14px;gap:8px"><span class="grow"></span><button class="btn ghost" id="cn">취소</button><button class="btn" id="sv">예약</button></div>`);
+  $('#b_q').oninput = e => document.querySelectorAll('#b_list [data-n]').forEach(l => l.style.display = l.dataset.n.includes(e.target.value.trim()) ? '' : 'none');
+  $('#cn').onclick = closeDlg;
+  $('#sv').onclick = async () => {
+    const t = $('#b_time').value; const ids = [...document.querySelectorAll('#b_list input:checked')].map(i => i.value);
+    if (!t || !ids.length) return toast('시간과 회원을 골라 주세요');
+    const batch = fb.writeBatch(db); const added = [];
+    ids.forEach(id => {
+      const p = state.passes.find(x => x.id === id);
+      if (state.books.some(b => b.date === date && b.time === t && b.passId === id)) return;
+      const ref = fb.doc(fb.collection(db, 'bookings'));
+      const doc = { date, time: t, passId: id, name: p.name, cls: p.cls, notified: false, createdAt: fb.serverTimestamp() };
+      batch.set(ref, doc); added.push({ id: ref.id, ...doc });
+    });
+    await batch.commit(); state.books.push(...added);
+    closeDlg(); toast(`${added.length}명 예약했어요`); renderBook();
+  };
+}
+
+async function delBooking(id){
+  const b = state.books.find(x => x.id === id);
+  if (!confirm(`${b.name}님 ${fmtDay(b.date)} ${b.time} 예약을 취소할까요?`)) return;
+  await fb.deleteDoc(fb.doc(db, 'bookings', id));
+  state.books = state.books.filter(x => x.id !== id);
+  toast('예약을 취소했어요'); renderBook();
+}
 
 function passList(list, withBtn){
   if (!list.length) return `<div class="center hint">해당하는 회원이 없어요</div>`;
   return list.map(p => { const [s, c] = status(p); return `
   <div class="card"><div class="row">
     <div class="grow" data-open="${p.id}" style="cursor:pointer">
-      <div class="name">${esc(p.name)}<span class="tag ${c}">${s}</span></div>
+      <div class="name">${esc(p.name)}<span class="tag ${c}">${s}</span>${withBtn && bookedTime(p.id) ? `<span class="tag" style="background:#e7eefc;color:#2f56b0">예약 ${bookedTime(p.id)}</span>` : ''}</div>
       <div class="sub">${esc(p.cls)} · ${esc(p.label || '')}${p.lastDate ? ' · 마지막 ' + esc(p.lastDate.slice(5)) : ''}</div>
     </div>
     ${p.kind === '금액권' ? '' : `<div class="big">${left(p)}<small>남음 / ${p.total}</small></div>`}
@@ -179,7 +261,12 @@ function filtered(){
   return state.passes.filter(p => !p.archived)
     .filter(p => state.filter === '전체' || p.cls.includes(state.filter))
     .filter(p => !q || p.name.includes(q))
-    .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    .sort((a, b) => (bookedTime(a.id) || '99').localeCompare(bookedTime(b.id) || '99') || a.name.localeCompare(b.name, 'ko'));
+}
+function bookedTime(passId){
+  const d = $('#ckDate')?.value || today();
+  const b = state.books.filter(x => x.passId === passId && x.date === d).map(x => x.time).sort();
+  return b[0] || '';
 }
 
 function renderCheck(){
@@ -191,6 +278,7 @@ function renderCheck(){
   ${passList(filtered(), true)}`;
   $('#q').oninput = e => { state.q = e.target.value; const pos = e.target.selectionStart; renderCheck(); const n = $('#q'); n.focus(); n.setSelectionRange(pos, pos); };
   app.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { state.filter = b.dataset.f; renderCheck(); });
+  $('#ckDate').onchange = e => { const v = e.target.value; renderCheck(); $('#ckDate').value = v; };
   app.querySelectorAll('[data-ck]').forEach(b => { if (done.has(b.dataset.ck)) { b.textContent = '완료'; b.classList.add('ghost'); } });
   bindList();
 }
@@ -225,6 +313,9 @@ function renderMore(){
   <div class="card"><div class="name">기존 시트 데이터 가져오기</div>
     <p class="hint">받은 <b>무플_가져오기.json</b> 파일을 선택하세요. 처음 한 번만 하면 돼요.</p>
     <input type="file" id="imp" accept=".json,application/json"></div>
+  <div class="card"><div class="name">휴대폰 번호 한 번에 넣기</div>
+    <p class="hint">받은 <b>무플_전화번호.json</b> 파일을 선택하면 이름이 같은 회원에게 번호가 들어가요.</p>
+    <input type="file" id="phImp" accept=".json,application/json"></div>
   <div class="card"><div class="name">백업 내려받기</div>
     <p class="hint">이용권과 출석 기록 전체를 파일로 저장해요. 한 달에 한 번 받아 두세요.</p>
     <button class="btn ghost" id="bak">백업 파일 받기</button></div>
@@ -233,6 +324,17 @@ function renderMore(){
     <button class="btn red" id="rst">설정 지우고 로그아웃</button></div>`;
   $('#imp').onchange = e => importFile(e.target.files[0]);
   $('#bak').onclick = backup;
+  $('#phImp').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    let map; try { map = JSON.parse(await f.text()); } catch (er) { return toast('파일을 읽을 수 없어요'); }
+    const batch = fb.writeBatch(db); let n = 0;
+    state.passes.forEach(p => { const ph = map[p.name]; if (ph && !p.phone) { batch.update(fb.doc(db, 'passes', p.id), { phone: ph, phone4: ph.slice(-4) }); p.phone = ph; n++; } });
+    await batch.commit();
+    const miss = [...new Set(state.passes.filter(p => !p.archived && !p.phone && p.kind !== '금액권').map(p => p.name))];
+    toast(`${n}개 이용권에 번호를 넣었어요`);
+    dialog(`<div class="name">번호 넣기 완료 (${n}개)</div><p class="hint">번호가 없는 회원: ${esc(miss.join(', ')) || '없음'}<br>회원 이름 → 수정에서 직접 넣어 주세요.</p><div class="row"><span class="grow"></span><button class="btn" id="cl">확인</button></div>`);
+    $('#cl').onclick = closeDlg;
+  };
   $('#rst').onclick = async () => { try{localStorage.removeItem('mp_fb_cfg')}catch(e){} await fb.signOut(auth); location.reload(); };
 }
 
@@ -276,6 +378,7 @@ async function openPass(id){
     <div class="name">${esc(p.name)}<span class="tag ${c}">${s}</span></div>
     <div class="sub">${esc(p.cls)} · ${esc(p.label || '')}</div>
     <p>등록 <b>${p.total}</b>회 · 사용 <b>${used(p)}</b>회 (시트에서 옮긴 ${p.usedBefore || 0} + 앱 ${p.usedAfter || 0}) · <b>남음 ${left(p)}</b>회</p>
+    <p class="hint">휴대폰: ${p.phone ? esc(p.phone.replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-$2-$3')) : '<b style="color:var(--red)">없음 — 수정에서 넣어 주세요 (알림톡 발송에 필요)</b>'}</p>
     ${p.note ? `<p class="hint">메모: ${esc(p.note)}</p>` : ''}
     <div class="name" style="font-size:14px">앱 출석 기록 ${ds.length}회</div>
     <div class="hist">${ds.map(d => `<div><span>${esc(d)}</span></div>`).join('') || '<p class="hint">아직 없음</p>'}</div>
@@ -287,7 +390,7 @@ async function openPass(id){
     </div>`);
   $('#cl').onclick = closeDlg;
   $('#ed').onclick = () => editPass(p);
-  $('#rn').onclick = () => editPass({ name: p.name, cls: p.cls, phone4: p.phone4 || '', _renew: p.id });
+  $('#rn').onclick = () => editPass({ name: p.name, cls: p.cls, phone: p.phone || '', _renew: p.id });
   $('#ar').onclick = async () => { await fb.updateDoc(fb.doc(db, 'passes', id), { archived: !p.archived }); p.archived = !p.archived; closeDlg(); render(); };
 }
 
@@ -301,15 +404,17 @@ function editPass(p){
     <label>이용권 이름 (예: 재등록 8회, 오전 케틀벨반 24회)</label><input id="f_label" value="${esc(p.label || '')}">
     <label>등록 횟수</label><input id="f_total" type="number" inputmode="numeric" value="${p.total ?? ''}">
     ${isNew ? '' : `<label>시트에서 옮긴 사용 횟수 (보정용)</label><input id="f_ub" type="number" inputmode="numeric" value="${p.usedBefore || 0}">`}
-    <label>전화 뒷자리</label><input id="f_p4" inputmode="numeric" maxlength="4" value="${esc(p.phone4 || '')}">
+    <label>휴대폰 번호 (알림톡 발송용, 숫자만)</label><input id="f_phone" inputmode="numeric" maxlength="11" value="${esc(p.phone || '')}">
     <label>메모</label><input id="f_note" value="${esc(p.note || '')}">
     ${p._renew ? '<p class="hint">저장하면 이전 이용권은 자동으로 만료 처리돼요.</p>' : ''}
     <div class="row" style="margin-top:14px;gap:8px"><span class="grow"></span><button class="btn ghost" id="cn">취소</button><button class="btn" id="sv">저장</button></div>`);
   $('#cn').onclick = closeDlg;
   $('#sv').onclick = async () => {
     const d = { name: $('#f_name').value.trim(), cls: $('#f_cls').value, label: $('#f_label').value.trim(),
-      total: +$('#f_total').value || 0, phone4: $('#f_p4').value.trim(), note: $('#f_note').value.trim() };
+      total: +$('#f_total').value || 0, phone: $('#f_phone').value.replace(/\D/g, ''), note: $('#f_note').value.trim() };
+    d.phone4 = d.phone.slice(-4);
     if (!d.name || !d.total) return toast('이름과 등록 횟수를 넣어 주세요');
+    if (d.phone && !/^01\d{8,9}$/.test(d.phone)) return toast('휴대폰 번호를 확인해 주세요');
     if (isNew) {
       const ref = await fb.addDoc(fb.collection(db, 'passes'), { ...d, usedBefore: 0, usedAfter: 0, lastDate: null, archived: false, startDate: today(), createdAt: fb.serverTimestamp() });
       state.passes.push({ id: ref.id, ...d, usedBefore: 0, usedAfter: 0, lastDate: null, archived: false });
