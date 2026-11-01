@@ -45,6 +45,13 @@ label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
 dialog{border:0;border-radius:14px;padding:16px;width:min(92vw,460px)}
 dialog::backdrop{background:rgba(0,0,0,.4)}
 .hist{font-size:14px;max-height:240px;overflow:auto;margin-top:8px}
+.wk{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px;font-size:14px}
+.wk .d{font-weight:700;color:var(--g);display:flex;justify-content:space-between;gap:8px}
+.wk ul{margin:6px 0 0;padding-left:18px}.wk li{margin:2px 0}
+.wk .hw{margin-top:6px;color:#8a5a00;background:#fdf3e1;border-radius:8px;padding:4px 8px}
+.chipset{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.chipset button{border:1px solid var(--line);background:var(--g2);color:var(--g);border-radius:99px;padding:5px 10px;font-size:13px}
+dialog{max-height:90vh;overflow:auto}
 .hist div{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)}
 .hidden{display:none!important}
 </style>
@@ -331,6 +338,9 @@ function renderMore(){
   <div class="card"><div class="name">기존 시트 데이터 가져오기</div>
     <p class="hint">받은 <b>무플_가져오기.json</b> 파일을 선택하세요. 처음 한 번만 하면 돼요.</p>
     <input type="file" id="imp" accept=".json,application/json"></div>
+  <div class="card"><div class="name">운동 기록 가져오기</div>
+    <p class="hint">받은 <b>무플_운동기록.json</b> 파일을 선택하면 개인 기록지의 운동 기록과 수업 목표가 들어와요. 처음 한 번만 하면 돼요.</p>
+    <input type="file" id="wkImp" accept=".json,application/json"></div>
   <div class="card"><div class="name">휴대폰 번호 한 번에 넣기</div>
     <p class="hint">받은 <b>무플_전화번호.json</b> 파일을 선택하면 이름이 같은 회원에게 번호가 들어가요.</p>
     <input type="file" id="phImp" accept=".json,application/json"></div>
@@ -341,6 +351,22 @@ function renderMore(){
     <p class="hint">다른 사람 기기에서 썼다면 눌러 주세요.</p>
     <button class="btn red" id="rst">설정 지우고 로그아웃</button></div>`;
   $('#imp').onchange = e => importFile(e.target.files[0]);
+  $('#wkImp').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    let data; try { data = JSON.parse(await f.text()); } catch (er) { return toast('파일을 읽을 수 없어요'); }
+    const ex = await fb.getDocs(fb.query(fb.collection(db, 'workouts'), fb.limit(1)));
+    if (ex.docs.length && !confirm('이미 운동 기록이 있어요. 그래도 추가할까요? (중복될 수 있어요)')) return;
+    const list = data.workouts || [];
+    for (let i = 0; i < list.length; i += 400) {
+      const batch = fb.writeBatch(db);
+      list.slice(i, i + 400).forEach(w => batch.set(fb.doc(fb.collection(db, 'workouts')), { ...w, createdAt: fb.serverTimestamp() }));
+      await batch.commit();
+    }
+    const gb = fb.writeBatch(db);
+    Object.entries(data.goals || {}).forEach(([k, v]) => v && gb.set(fb.doc(db, 'profiles', k), { goal: v }, { merge: true }));
+    await gb.commit();
+    toast(`운동 기록 ${list.length}개를 가져왔어요`);
+  };
   $('#bak').onclick = backup;
   $('#phImp').onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
@@ -371,6 +397,7 @@ async function checkIn(passId, date){
   state.logs.unshift({ id: ref.id, passId, name: p.name, date });
   toast(`${p.name}님 출석 · 남은 ${left(p)}회`);
   render();
+  if (isPT(p)) writeWorkout(p.name, date);
 }
 
 function moneyCheckIn(p, date){
@@ -396,6 +423,7 @@ function moneyCheckIn(p, date){
     p.spent = (p.spent || 0) + amount; p.lastDate = newLast;
     state.logs.unshift({ id: ref.id, ...log });
     closeDlg(); toast(`${p.name}님 ${kind} 출석 · 잔액 ${won(moneyLeft(p))}`); render();
+    if (kind === '개인') writeWorkout(p.name, date);
   });
 }
 
@@ -416,20 +444,81 @@ async function undo(logId){
   toast('취소했어요'); render();
 }
 
+/* ---------- 운동 기록 ---------- */
+const isPT = p => /1:1|2:1/.test(p.cls || '') && !/^그룹/.test(p.cls || '');
+const wkSort = (a, b) => (b.date || '9999').localeCompare(a.date || '9999');
+const wkDay = w => w.dateLabel || (w.date ? fmtDay(w.date) : '날짜 미기재');
+async function loadWorkouts(member){
+  const snap = await fb.getDocs(fb.query(fb.collection(db, 'workouts'), fb.where('member', '==', member)));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort(wkSort);
+}
+function wkCard(w, tools){
+  return `<div class="wk"><div class="d"><span>${esc(wkDay(w))}${w.note ? ' · ' + esc(w.note) : ''}</span>${tools ? `<span><button class="btn ghost" data-we="${w.id}" style="padding:2px 8px;font-size:12px">수정</button></span>` : ''}</div>
+    <ul>${(w.items || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul>${w.homework ? `<div class="hw">숙제 · ${esc(w.homework)}</div>` : ''}</div>`;
+}
+function topMoves(wks){
+  const cnt = {}, label = {};
+  wks.forEach(w => (w.items || []).forEach(i => { const t = i.split(' - ')[0].trim(), k = t.replace(/\s/g, ''); if (t.length <= 24) { cnt[k] = (cnt[k] || 0) + 1; label[k] = label[k] || t; } }));
+  return Object.entries(cnt).sort((a, b) => b[1] - a[1]).slice(0, 12).map(x => label[x[0]]);
+}
+async function showWorkouts(member){
+  const wks = await loadWorkouts(member);
+  dialog(`<div class="row"><div class="grow name">${esc(member)}님 운동 기록 ${wks.length}회</div><button class="btn" id="cl">닫기</button></div>
+    ${wks.map(w => wkCard(w, true)).join('')}`);
+  $('#cl').onclick = closeDlg;
+  document.querySelectorAll('[data-we]').forEach(b => b.onclick = () => writeWorkout(member, null, wks.find(w => w.id === b.dataset.we)));
+}
+async function writeWorkout(member, date, existing){
+  const wks = await loadWorkouts(member);
+  const last = wks.find(w => !existing || w.id !== existing.id);
+  const moves = topMoves(wks);
+  const w = existing || { date: date || today(), items: [], homework: '', note: '' };
+  dialog(`
+    <div class="name">${esc(member)}님 ${existing ? '운동 기록 수정' : '오늘 운동 기록'}</div>
+    <label>날짜</label><input type="date" id="w_d" value="${esc(w.date && !w.date.endsWith('-00') ? w.date : today())}">
+    ${last && !existing ? `<div class="wk" style="background:var(--bg)"><div class="d"><span>지난 수업 · ${esc(wkDay(last))}</span><button class="btn ghost" id="w_copy" style="padding:2px 8px;font-size:12px">그대로 불러오기</button></div><ul>${(last.items || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul>${last.homework ? `<div class="hw">숙제 · ${esc(last.homework)}</div>` : ''}</div>` : ''}
+    ${moves.length ? `<label>자주 한 운동 (누르면 추가)</label><div class="chipset">${moves.map(m => `<button data-mv="${esc(m)}">${esc(m)}</button>`).join('')}</div>` : ''}
+    <label>오늘 한 운동 (한 줄에 하나씩)</label>
+    <textarea id="w_i" rows="7" placeholder="예) KB 스윙 80개 - 12kg">${esc((w.items || []).join('\n'))}</textarea>
+    <label>숙제</label><input id="w_h" value="${esc(w.homework || '')}" placeholder="예) 겟업 10번, 벽 밀기">
+    <label>메모 (통증·컨디션 등)</label><input id="w_n" value="${esc(w.note || '')}">
+    <div class="row" style="margin-top:14px;gap:8px">${existing ? '<button class="btn red" id="w_del">삭제</button>' : ''}<span class="grow"></span><button class="btn ghost" id="cn">닫기</button><button class="btn" id="sv">저장</button></div>`);
+  const ta = $('#w_i');
+  const add = t => { ta.value = (ta.value.trim() ? ta.value.replace(/\s+$/, '') + '\n' : '') + t; };
+  if ($('#w_copy')) $('#w_copy').onclick = () => { ta.value = (last.items || []).join('\n'); if (!$('#w_h').value) $('#w_h').value = last.homework || ''; toast('지난 수업을 불러왔어요. 바뀐 것만 고치세요'); };
+  document.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => add(b.dataset.mv));
+  $('#cn').onclick = closeDlg;
+  if ($('#w_del')) $('#w_del').onclick = async () => { if (!confirm('이 기록을 지울까요?')) return; await fb.deleteDoc(fb.doc(db, 'workouts', existing.id)); toast('지웠어요'); showWorkouts(member); };
+  $('#sv').onclick = async () => {
+    const items = ta.value.split('\n').map(x => x.trim()).filter(Boolean);
+    if (!items.length) return toast('운동을 한 줄 이상 적어 주세요');
+    const d = { member, date: $('#w_d').value, dateLabel: '', items, homework: $('#w_h').value.trim(), note: $('#w_n').value.trim() };
+    if (existing) await fb.updateDoc(fb.doc(db, 'workouts', existing.id), d);
+    else await fb.addDoc(fb.collection(db, 'workouts'), { ...d, createdAt: fb.serverTimestamp() });
+    closeDlg(); toast('운동 기록을 저장했어요');
+  };
+}
+
 async function openPass(id){
   const p = state.passes.find(x => x.id === id);
   const snap = await fb.getDocs(fb.query(fb.collection(db, 'attendance'), fb.where('passId', '==', id)));
   const rows = snap.docs.map(d => d.data()).sort((a, b) => b.date.localeCompare(a.date));
   const [s, c] = status(p);
+  const [wks, prof] = await Promise.all([loadWorkouts(p.name), fb.getDoc(fb.doc(db, 'profiles', p.name))]);
+  const goal = prof.exists() ? (prof.data().goal || '') : '';
   dialog(`
     <div class="name">${esc(p.name)}<span class="tag ${c}">${s}</span></div>
+    <p style="margin:8px 0" class="hint"><b style="color:var(--ink)">목표</b> ${goal ? esc(goal) : '아직 없음'} <button class="btn ghost" id="gl" style="padding:2px 8px;font-size:12px">수정</button></p>
     <div class="sub">${esc(p.cls)} · ${esc(p.label || '')}</div>
     ${isMoney(p)
       ? `<p>충전 잔액 <b>${won(p.balance)}</b> · 사용 <b>${won(p.spent)}</b> · <b>남은 금액 ${won(moneyLeft(p))}</b><br><span class="hint">개인 PT −${won(p.priceP)} · 그룹 수업 −${won(p.priceG)}</span></p>`
       : `<p>등록 <b>${p.total}</b>회 · 사용 <b>${used(p)}</b>회 (시트에서 옮긴 ${p.usedBefore || 0} + 앱 ${p.usedAfter || 0}) · <b>남음 ${left(p)}</b>회</p>`}
     <p class="hint">휴대폰: ${p.phone ? esc(p.phone.replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-$2-$3')) : '<b style="color:var(--red)">없음 — 수정에서 넣어 주세요 (알림톡 발송에 필요)</b>'}</p>
     ${p.note ? `<p class="hint">메모: ${esc(p.note)}</p>` : ''}
-    <div class="name" style="font-size:14px">앱 출석 기록 ${rows.length}회</div>
+    <div class="row" style="margin-top:6px"><div class="grow name" style="font-size:15px">운동 기록 ${wks.length}회</div><button class="btn" id="wn" style="padding:6px 12px;font-size:14px">+ 오늘 기록</button></div>
+    ${wks.slice(0, 2).map(w => wkCard(w)).join('') || '<p class="hint">아직 없음</p>'}
+    ${wks.length > 2 ? '<button class="btn ghost" id="wa" style="margin-top:8px;width:100%">운동 기록 전체 보기</button>' : ''}
+    <div class="name" style="font-size:14px;margin-top:14px">앱 출석 기록 ${rows.length}회</div>
     <div class="hist">${rows.map(r => `<div><span>${esc(r.date)}</span><span>${r.amount ? esc(r.kind) + ' −' + won(r.amount) : ''}</span></div>`).join('') || '<p class="hint">아직 없음</p>'}</div>
     <div class="row" style="margin-top:14px;gap:8px">
       <button class="btn ghost" id="ed">수정</button>
@@ -439,6 +528,12 @@ async function openPass(id){
     </div>`);
   $('#cl').onclick = closeDlg;
   $('#ed').onclick = () => editPass(p);
+  $('#wn').onclick = () => writeWorkout(p.name, today());
+  if ($('#wa')) $('#wa').onclick = () => showWorkouts(p.name);
+  $('#gl').onclick = async () => {
+    const g = prompt(`${p.name}님 수업 목표`, goal); if (g === null) return;
+    await fb.setDoc(fb.doc(db, 'profiles', p.name), { goal: g.trim() }, { merge: true }); toast('목표를 저장했어요'); openPass(p.id);
+  };
   $('#rn').onclick = () => editPass({ name: p.name, cls: p.cls, phone: p.phone || '', kind: p.kind || '', priceP: p.priceP, priceG: p.priceG, _renew: p.id });
   $('#ar').onclick = async () => { await fb.updateDoc(fb.doc(db, 'passes', id), { archived: !p.archived }); p.archived = !p.archived; closeDlg(); render(); };
 }
