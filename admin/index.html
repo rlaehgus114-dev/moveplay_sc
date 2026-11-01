@@ -143,6 +143,11 @@ function loginScreen(){
 async function loadAll(){
   const ps = await fb.getDocs(fb.collection(db, 'passes'));
   state.passes = ps.docs.map(d => ({ id: d.id, ...d.data() }));
+  for (const p of state.passes) {
+    if (isMoney(p) && p.balance == null && MONEY_INIT[p.name]) {
+      await fb.updateDoc(fb.doc(db, 'passes', p.id), MONEY_INIT[p.name]); Object.assign(p, MONEY_INIT[p.name]);
+    }
+  }
   const since = new Date(); since.setDate(since.getDate() - 120);
   const ls = await fb.getDocs(fb.query(fb.collection(db, 'attendance'), fb.where('date', '>=', since.toISOString().slice(0, 10)), fb.orderBy('date', 'desc'), fb.limit(500)));
   state.logs = ls.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -153,9 +158,21 @@ async function loadAll(){
 /* ---------- 계산 ---------- */
 const used = p => (p.usedBefore || 0) + (p.usedAfter || 0);
 const left = p => (p.total || 0) - used(p);
+const isMoney = p => p.kind === '금액권';
+const moneyLeft = p => (p.balance || 0) - (p.spent || 0);
+const won = n => (n || 0).toLocaleString('ko-KR') + '원';
+// 금액권 처음 설정값 (출석관리 시트 '금액권' 탭 2026-10-31 기준)
+const MONEY_INIT = { '한가려': { balance: 465000, priceP: 60000, priceG: 25000, spent: 0 } };
 function status(p){
   if (p.archived) return ['만료', 'gray'];
-  if (p.kind === '금액권') return ['금액권', 'gray'];
+  if (isMoney(p)) {
+    const m = moneyLeft(p);
+    if (m < Math.min(p.priceP || 0, p.priceG || 0) || m <= 0) return ['충전 안내', 'red'];
+    if (m < (p.priceP || 0) * 2) return ['곧 소진', 'amber'];
+    const d = daysSince(p.lastDate);
+    if (d !== null && d >= 21) return ['연락 필요', 'amber'];
+    return ['금액권', ''];
+  }
   const l = left(p), d = daysSince(p.lastDate);
   if (l <= 0) return ['재등록 안내', 'red'];
   if (l <= 3) return ['곧 소진', 'amber'];
@@ -202,14 +219,14 @@ function renderBook(){
 }
 
 function addBooking(date, time){
-  const act = state.passes.filter(p => !p.archived && p.kind !== '금액권').sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+  const act = state.passes.filter(p => !p.archived).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
   const slot = (GROUP_SLOTS[wdOf(date)] || []).find(s => s[0] === time);
   dialog(`
     <div class="name">${fmtDay(date)} 예약 추가</div>
     <label>시간</label><input id="b_time" type="time" step="1800" value="${time || '10:00'}">
     <label>회원 (여러 명 선택 가능)</label>
     <input id="b_q" placeholder="이름 검색" style="margin-bottom:6px">
-    <div id="b_list" class="hist" style="max-height:260px">${act.map(p => `<label class="row" data-n="${esc(p.name)}" style="margin:0;padding:8px 0;border-bottom:1px solid var(--line);color:var(--ink);font-size:15px"><input type="checkbox" value="${p.id}" style="width:auto"> <span class="grow">${esc(p.name)} <span class="sub">${esc(p.cls)} · 남음 ${left(p)}</span></span></label>`).join('')}</div>
+    <div id="b_list" class="hist" style="max-height:260px">${act.map(p => `<label class="row" data-n="${esc(p.name)}" style="margin:0;padding:8px 0;border-bottom:1px solid var(--line);color:var(--ink);font-size:15px"><input type="checkbox" value="${p.id}" style="width:auto"> <span class="grow">${esc(p.name)} <span class="sub">${esc(p.cls)} · ${isMoney(p) ? '잔액 ' + won(moneyLeft(p)) : '남음 ' + left(p)}</span></span></label>`).join('')}</div>
     ${slot ? `<p class="hint">${esc(slot[1])} 수업 시간이에요.</p>` : ''}
     <div class="row" style="margin-top:14px;gap:8px"><span class="grow"></span><button class="btn ghost" id="cn">취소</button><button class="btn" id="sv">예약</button></div>`);
   $('#b_q').oninput = e => document.querySelectorAll('#b_list [data-n]').forEach(l => l.style.display = l.dataset.n.includes(e.target.value.trim()) ? '' : 'none');
@@ -222,7 +239,8 @@ function addBooking(date, time){
       const p = state.passes.find(x => x.id === id);
       if (state.books.some(b => b.date === date && b.time === t && b.passId === id)) return;
       const ref = fb.doc(fb.collection(db, 'bookings'));
-      const doc = { date, time: t, passId: id, name: p.name, cls: p.cls, notified: false, createdAt: fb.serverTimestamp() };
+      const gs = (GROUP_SLOTS[wdOf(date)] || []).find(x => x[0] === t);
+      const doc = { date, time: t, passId: id, name: p.name, cls: p.cls, slot: gs ? gs[1] : '', notified: false, createdAt: fb.serverTimestamp() };
       batch.set(ref, doc); added.push({ id: ref.id, ...doc });
     });
     await batch.commit(); state.books.push(...added);
@@ -246,8 +264,8 @@ function passList(list, withBtn){
       <div class="name">${esc(p.name)}<span class="tag ${c}">${s}</span>${withBtn && bookedTime(p.id) ? `<span class="tag" style="background:#e7eefc;color:#2f56b0">예약 ${bookedTime(p.id)}</span>` : ''}</div>
       <div class="sub">${esc(p.cls)} · ${esc(p.label || '')}${p.lastDate ? ' · 마지막 ' + esc(p.lastDate.slice(5)) : ''}</div>
     </div>
-    ${p.kind === '금액권' ? '' : `<div class="big">${left(p)}<small>남음 / ${p.total}</small></div>`}
-    ${withBtn && p.kind !== '금액권' ? `<button class="btn" data-ck="${p.id}" ${left(p) <= 0 ? 'disabled' : ''}>출석</button>` : ''}
+    ${isMoney(p) ? `<div class="big" style="font-size:17px">${won(moneyLeft(p))}<small>잔액</small></div>` : `<div class="big">${left(p)}<small>남음 / ${p.total}</small></div>`}
+    ${withBtn ? `<button class="btn" data-ck="${p.id}" ${(isMoney(p) ? moneyLeft(p) <= 0 : left(p) <= 0) ? 'disabled' : ''}>출석</button>` : ''}
   </div></div>`; }).join('');
 }
 
@@ -285,7 +303,7 @@ function renderCheck(){
 
 function renderMembers(){
   const act = state.passes.filter(p => !p.archived);
-  const need = act.filter(p => status(p)[0] !== '정상' && p.kind !== '금액권');
+  const need = act.filter(p => !['정상', '금액권'].includes(status(p)[0]));
   app.innerHTML = `
   <div class="toolbar"><button class="btn" id="add">+ 새 이용권</button></div>
   <div class="name" style="margin:6px 0">챙겨야 할 회원 ${need.length}명</div>
@@ -303,7 +321,7 @@ function renderLog(){
   state.logs.forEach(l => (groups[l.date] = groups[l.date] || []).push(l));
   app.innerHTML = Object.keys(groups).length ? Object.entries(groups).map(([d, ls]) => `
     <div class="card"><div class="name">${esc(d)} <span class="tag">${ls.length}명</span></div>
-    ${ls.map(l => `<div class="row" style="padding:6px 0;border-top:1px solid var(--line)"><div class="grow">${esc(byId[l.passId]?.name || l.name)} <span class="sub">${esc(byId[l.passId]?.cls || '')}</span></div><button class="btn red" data-undo="${l.id}" style="padding:6px 10px;font-size:13px">취소</button></div>`).join('')}
+    ${ls.map(l => `<div class="row" style="padding:6px 0;border-top:1px solid var(--line)"><div class="grow">${esc(byId[l.passId]?.name || l.name)} <span class="sub">${l.amount ? esc(l.kind) + ' · −' + won(l.amount) : esc(byId[l.passId]?.cls || '')}</span></div><button class="btn red" data-undo="${l.id}" style="padding:6px 10px;font-size:13px">취소</button></div>`).join('')}
     </div>`).join('') : `<div class="center hint">아직 이 앱에서 찍은 출석이 없어요.<br>기존 기록은 '사용' 횟수에 합쳐져 있어요.</div>`;
   app.querySelectorAll('[data-undo]').forEach(b => b.onclick = () => undo(b.dataset.undo));
 }
@@ -330,7 +348,7 @@ function renderMore(){
     const batch = fb.writeBatch(db); let n = 0;
     state.passes.forEach(p => { const ph = map[p.name]; if (ph && !p.phone) { batch.update(fb.doc(db, 'passes', p.id), { phone: ph, phone4: ph.slice(-4) }); p.phone = ph; n++; } });
     await batch.commit();
-    const miss = [...new Set(state.passes.filter(p => !p.archived && !p.phone && p.kind !== '금액권').map(p => p.name))];
+    const miss = [...new Set(state.passes.filter(p => !p.archived && !p.phone).map(p => p.name))];
     toast(`${n}개 이용권에 번호를 넣었어요`);
     dialog(`<div class="name">번호 넣기 완료 (${n}개)</div><p class="hint">번호가 없는 회원: ${esc(miss.join(', ')) || '없음'}<br>회원 이름 → 수정에서 직접 넣어 주세요.</p><div class="row"><span class="grow"></span><button class="btn" id="cl">확인</button></div>`);
     $('#cl').onclick = closeDlg;
@@ -341,6 +359,7 @@ function renderMore(){
 /* ---------- 동작 ---------- */
 async function checkIn(passId, date){
   const p = state.passes.find(x => x.id === passId);
+  if (isMoney(p)) return moneyCheckIn(p, date);
   if (state.logs.some(l => l.passId === passId && l.date === date) && !confirm(`${p.name}님은 ${date}에 이미 출석했어요. 한 번 더 찍을까요?`)) return;
   const ref = fb.doc(fb.collection(db, 'attendance'));
   const batch = fb.writeBatch(db);
@@ -354,6 +373,32 @@ async function checkIn(passId, date){
   render();
 }
 
+function moneyCheckIn(p, date){
+  dialog(`
+    <div class="name">${esc(p.name)}님 출석 · 어떤 수업인가요?</div>
+    <p class="hint">현재 잔액 ${won(moneyLeft(p))}</p>
+    <div style="display:grid;gap:10px;margin-top:10px">
+      <button class="btn" data-mk="개인">개인 PT · −${won(p.priceP)}</button>
+      <button class="btn" data-mk="그룹">그룹 수업 · −${won(p.priceG)}</button>
+    </div>
+    <div class="row" style="margin-top:14px"><span class="grow"></span><button class="btn ghost" id="cn">취소</button></div>`);
+  $('#cn').onclick = closeDlg;
+  document.querySelectorAll('[data-mk]').forEach(b => b.onclick = async () => {
+    const kind = b.dataset.mk, amount = kind === '개인' ? (p.priceP || 0) : (p.priceG || 0);
+    if (amount > moneyLeft(p) && !confirm(`잔액(${won(moneyLeft(p))})보다 차감액이 커요. 그래도 출석할까요?`)) return;
+    const ref = fb.doc(fb.collection(db, 'attendance'));
+    const batch = fb.writeBatch(db);
+    const log = { passId: p.id, name: p.name, date, kind, amount, createdAt: fb.serverTimestamp() };
+    batch.set(ref, log);
+    const newLast = !p.lastDate || date > p.lastDate ? date : p.lastDate;
+    batch.update(fb.doc(db, 'passes', p.id), { spent: fb.increment(amount), lastDate: newLast });
+    await batch.commit();
+    p.spent = (p.spent || 0) + amount; p.lastDate = newLast;
+    state.logs.unshift({ id: ref.id, ...log });
+    closeDlg(); toast(`${p.name}님 ${kind} 출석 · 잔액 ${won(moneyLeft(p))}`); render();
+  });
+}
+
 async function undo(logId){
   const l = state.logs.find(x => x.id === logId); if (!l) return;
   if (!confirm(`${l.name}님 ${l.date} 출석을 취소할까요?`)) return;
@@ -362,9 +407,11 @@ async function undo(logId){
   batch.delete(fb.doc(db, 'attendance', logId));
   const rest = state.logs.filter(x => x.passId === l.passId && x.id !== logId).map(x => x.date).sort();
   const newLast = rest.length ? rest[rest.length - 1] : (p.importedLast || p.lastDate);
-  if (p) batch.update(fb.doc(db, 'passes', p.id), { usedAfter: fb.increment(-1), lastDate: newLast || null });
+  if (p && l.amount) batch.update(fb.doc(db, 'passes', p.id), { spent: fb.increment(-l.amount), lastDate: newLast || null });
+  else if (p) batch.update(fb.doc(db, 'passes', p.id), { usedAfter: fb.increment(-1), lastDate: newLast || null });
   await batch.commit();
-  if (p) { p.usedAfter = (p.usedAfter || 0) - 1; p.lastDate = newLast; }
+  if (p && l.amount) { p.spent = (p.spent || 0) - l.amount; p.lastDate = newLast; }
+  else if (p) { p.usedAfter = (p.usedAfter || 0) - 1; p.lastDate = newLast; }
   state.logs = state.logs.filter(x => x.id !== logId);
   toast('취소했어요'); render();
 }
@@ -372,16 +419,18 @@ async function undo(logId){
 async function openPass(id){
   const p = state.passes.find(x => x.id === id);
   const snap = await fb.getDocs(fb.query(fb.collection(db, 'attendance'), fb.where('passId', '==', id)));
-  const ds = snap.docs.map(d => d.data().date).sort().reverse();
+  const rows = snap.docs.map(d => d.data()).sort((a, b) => b.date.localeCompare(a.date));
   const [s, c] = status(p);
   dialog(`
     <div class="name">${esc(p.name)}<span class="tag ${c}">${s}</span></div>
     <div class="sub">${esc(p.cls)} · ${esc(p.label || '')}</div>
-    <p>등록 <b>${p.total}</b>회 · 사용 <b>${used(p)}</b>회 (시트에서 옮긴 ${p.usedBefore || 0} + 앱 ${p.usedAfter || 0}) · <b>남음 ${left(p)}</b>회</p>
+    ${isMoney(p)
+      ? `<p>충전 잔액 <b>${won(p.balance)}</b> · 사용 <b>${won(p.spent)}</b> · <b>남은 금액 ${won(moneyLeft(p))}</b><br><span class="hint">개인 PT −${won(p.priceP)} · 그룹 수업 −${won(p.priceG)}</span></p>`
+      : `<p>등록 <b>${p.total}</b>회 · 사용 <b>${used(p)}</b>회 (시트에서 옮긴 ${p.usedBefore || 0} + 앱 ${p.usedAfter || 0}) · <b>남음 ${left(p)}</b>회</p>`}
     <p class="hint">휴대폰: ${p.phone ? esc(p.phone.replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-$2-$3')) : '<b style="color:var(--red)">없음 — 수정에서 넣어 주세요 (알림톡 발송에 필요)</b>'}</p>
     ${p.note ? `<p class="hint">메모: ${esc(p.note)}</p>` : ''}
-    <div class="name" style="font-size:14px">앱 출석 기록 ${ds.length}회</div>
-    <div class="hist">${ds.map(d => `<div><span>${esc(d)}</span></div>`).join('') || '<p class="hint">아직 없음</p>'}</div>
+    <div class="name" style="font-size:14px">앱 출석 기록 ${rows.length}회</div>
+    <div class="hist">${rows.map(r => `<div><span>${esc(r.date)}</span><span>${r.amount ? esc(r.kind) + ' −' + won(r.amount) : ''}</span></div>`).join('') || '<p class="hint">아직 없음</p>'}</div>
     <div class="row" style="margin-top:14px;gap:8px">
       <button class="btn ghost" id="ed">수정</button>
       <button class="btn ghost" id="rn">재등록</button>
@@ -390,7 +439,7 @@ async function openPass(id){
     </div>`);
   $('#cl').onclick = closeDlg;
   $('#ed').onclick = () => editPass(p);
-  $('#rn').onclick = () => editPass({ name: p.name, cls: p.cls, phone: p.phone || '', _renew: p.id });
+  $('#rn').onclick = () => editPass({ name: p.name, cls: p.cls, phone: p.phone || '', kind: p.kind || '', priceP: p.priceP, priceG: p.priceG, _renew: p.id });
   $('#ar').onclick = async () => { await fb.updateDoc(fb.doc(db, 'passes', id), { archived: !p.archived }); p.archived = !p.archived; closeDlg(); render(); };
 }
 
@@ -402,25 +451,39 @@ function editPass(p){
     <label>이름</label><input id="f_name" value="${esc(p.name || '')}">
     <label>수업</label><select id="f_cls">${['1:1 PT', '2:1 PT', '그룹 PT', '1:1 PT,그룹 PT'].map(v => `<option ${p.cls === v ? 'selected' : ''}>${v}</option>`).join('')}</select>
     <label>이용권 이름 (예: 재등록 8회, 오전 케틀벨반 24회)</label><input id="f_label" value="${esc(p.label || '')}">
-    <label>등록 횟수</label><input id="f_total" type="number" inputmode="numeric" value="${p.total ?? ''}">
-    ${isNew ? '' : `<label>시트에서 옮긴 사용 횟수 (보정용)</label><input id="f_ub" type="number" inputmode="numeric" value="${p.usedBefore || 0}">`}
+    <label>종류</label><select id="f_kind"><option value="" ${isMoney(p) ? '' : 'selected'}>횟수권</option><option value="금액권" ${isMoney(p) ? 'selected' : ''}>금액권</option></select>
+    <div id="k_cnt">
+      <label>등록 횟수</label><input id="f_total" type="number" inputmode="numeric" value="${p.total ?? ''}">
+      ${isNew ? '' : `<label>시트에서 옮긴 사용 횟수 (보정용)</label><input id="f_ub" type="number" inputmode="numeric" value="${p.usedBefore || 0}">`}
+    </div>
+    <div id="k_money">
+      <label>${isNew ? '충전 금액(원)' : '충전 잔액(원) — 충전하면 더한 금액으로 고쳐 주세요'}</label><input id="f_bal" type="number" inputmode="numeric" value="${isNew ? '' : (p.balance ?? '')}">
+      <label>개인 PT 1회 차감(원)</label><input id="f_pp" type="number" inputmode="numeric" value="${p.priceP ?? 60000}">
+      <label>그룹 수업 1회 차감(원)</label><input id="f_pg" type="number" inputmode="numeric" value="${p.priceG ?? 25000}">
+    </div>
     <label>휴대폰 번호 (알림톡 발송용, 숫자만)</label><input id="f_phone" inputmode="numeric" maxlength="11" value="${esc(p.phone || '')}">
     <label>메모</label><input id="f_note" value="${esc(p.note || '')}">
     ${p._renew ? '<p class="hint">저장하면 이전 이용권은 자동으로 만료 처리돼요.</p>' : ''}
     <div class="row" style="margin-top:14px;gap:8px"><span class="grow"></span><button class="btn ghost" id="cn">취소</button><button class="btn" id="sv">저장</button></div>`);
+  const syncKind = () => { const m = $('#f_kind').value === '금액권'; $('#k_cnt').style.display = m ? 'none' : ''; $('#k_money').style.display = m ? '' : 'none'; };
+  $('#f_kind').onchange = syncKind; syncKind();
   $('#cn').onclick = closeDlg;
   $('#sv').onclick = async () => {
-    const d = { name: $('#f_name').value.trim(), cls: $('#f_cls').value, label: $('#f_label').value.trim(),
+    const d = { name: $('#f_name').value.trim(), cls: $('#f_cls').value, label: $('#f_label').value.trim(), kind: $('#f_kind').value,
       total: +$('#f_total').value || 0, phone: $('#f_phone').value.replace(/\D/g, ''), note: $('#f_note').value.trim() };
     d.phone4 = d.phone.slice(-4);
-    if (!d.name || !d.total) return toast('이름과 등록 횟수를 넣어 주세요');
+    if (d.kind === '금액권') {
+      d.balance = +$('#f_bal').value || 0; d.priceP = +$('#f_pp').value || 0; d.priceG = +$('#f_pg').value || 0; d.total = 0;
+      if (!d.name || !d.balance) return toast('이름과 충전 금액을 넣어 주세요');
+      if (isNew) d.spent = 0;
+    } else if (!d.name || !d.total) return toast('이름과 등록 횟수를 넣어 주세요');
     if (d.phone && !/^01\d{8,9}$/.test(d.phone)) return toast('휴대폰 번호를 확인해 주세요');
     if (isNew) {
       const ref = await fb.addDoc(fb.collection(db, 'passes'), { ...d, usedBefore: 0, usedAfter: 0, lastDate: null, archived: false, startDate: today(), createdAt: fb.serverTimestamp() });
       state.passes.push({ id: ref.id, ...d, usedBefore: 0, usedAfter: 0, lastDate: null, archived: false });
       if (p._renew) { await fb.updateDoc(fb.doc(db, 'passes', p._renew), { archived: true }); state.passes.find(x => x.id === p._renew).archived = true; }
     } else {
-      d.usedBefore = +$('#f_ub').value || 0;
+      if (d.kind !== '금액권') d.usedBefore = +$('#f_ub').value || 0;
       await fb.updateDoc(fb.doc(db, 'passes', p.id), d);
       Object.assign(p, d);
     }
