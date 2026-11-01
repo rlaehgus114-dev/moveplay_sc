@@ -84,8 +84,9 @@ section{padding-block:72px}
 
 /* 이런 분께 */
 .who{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:32px}
-@media (max-width:900px){.who{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:480px){.who{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:900px){.who{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:12px;padding-bottom:8px;margin-inline:-16px;padding-inline:16px;scroll-padding-inline:16px}.who article{flex:0 0 78%;scroll-snap-align:start}}
+.swipe-hint{display:none;font-size:13px;color:var(--muted);margin:10px 0 0}
+@media (max-width:900px){.swipe-hint{display:block}}
 .who article{background:var(--bg);border:1px solid var(--line);border-radius:18px;padding:20px;min-width:0}
 .who h3{font-size:18px;font-weight:800;margin-bottom:6px}
 .who p{margin:0;color:var(--muted);font-size:15px}
@@ -147,6 +148,7 @@ img.portrait{width:100%;height:auto;object-fit:cover;background:#000}
 .grp-label{font-size:15px;font-weight:800;margin:36px 0 0;color:var(--muted)}
 .programs.two{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px}
 .programs.three{margin-top:14px}
+@media (max-width:860px){.programs,.programs.two{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:12px;padding-bottom:8px;margin-inline:-16px;padding-inline:16px;scroll-padding-inline:16px}.programs article{flex:0 0 80%;scroll-snap-align:start}}
 @media (max-width:860px){.programs.two{grid-template-columns:minmax(0,1fr)}}
 .programs .catch{font-weight:800;color:var(--ink);margin:0 0 8px}
 .price{width:100%;border-collapse:collapse;margin-top:16px;font-size:15px;font-variant-numeric:tabular-nums}
@@ -221,12 +223,25 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px}
           <a class="btn primary" href="https://forms.gle/qYyXMGc3ex6Xfx6TA" target="_blank" rel="noopener">사전 상담 폼 작성하기</a>
           <a class="btn ghost" href="http://pf.kakao.com/_DgxnWX/chat" target="_blank" rel="noopener">카톡으로 물어보기</a>
         </div>
-        <p class="meta">상담 시간 월~토 오전 9시 ~ 오후 8시 · 예약은 상담 후 시간을 맞춰 잡아요</p>
+        <p class="meta">상담 시간 월~토 오전 9시 ~ 오후 9시 · 예약은 상담 후 시간을 맞춰 잡아요</p>
       </div>
       <figure class="hero-photo">
         <img src="img/hero.jpg" alt="무브앤플레이 순천점 운동 공간. 파워랙과 바벨, 커브드 트레드밀이 창가를 따라 놓여 있다" width="1100" height="1467">
         <span class="bars" aria-hidden="true"><i></i><i></i><i></i></span>
       </figure>
+    </div>
+  </section>
+
+  <section id="space">
+    <div class="wrap">
+      <p class="eyebrow">센터 둘러보기</p>
+      <h2>창이 넓은 4층, 소도구가 많은 운동 공간</h2>
+      <div class="gallery">
+        <figure><img src="img/kettlebell.jpg" alt="창가를 따라 무게별로 놓인 케틀벨" width="900" height="1200"><figcaption>무게별 케틀벨과 창가 운동 공간</figcaption></figure>
+        <figure><img src="img/tools.jpg" alt="메디신볼, 아쿠아백, 불가리안백, 바이퍼, 플라이오 박스가 정리된 선반" width="900" height="1200"><figcaption>아쿠아백 · 불가리안백 · 바이퍼 · 박스</figcaption></figure>
+        <figure><img src="img/floor.jpg" alt="고무 매트가 깔린 넓은 바닥과 박스, 랜드마인" width="900" height="1200"><figcaption>그룹 수업이 열리는 넓은 바닥</figcaption></figure>
+      </div>
+      <p class="swipe-hint">옆으로 넘겨 보세요 →</p>
     </div>
   </section>
 
@@ -241,6 +256,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px}
         <article><span class="tag">허리·발목</span><h3>자주 삐끗하고 불안할 때</h3><p>허리와 발목을 받쳐 주는 몸통·하체 근력을 차근차근.</p></article>
         <article><span class="tag">체력·체형</span><h3>운동이 처음이거나 오랜만일 때</h3><p>기초 체력, 자세, 다이어트. 무리하지 않는 강도부터 시작해요.</p></article>
       </div>
+      <p class="swipe-hint">옆으로 넘겨 보세요 →</p>
     </div>
   </section>
 
@@ -345,19 +361,8 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px}
     </div>
   </section>
 
-  <section id="space">
-    <div class="wrap">
-      <p class="eyebrow">센터 둘러보기</p>
-      <h2>창이 넓은 4층, 소도구가 많은 운동 공간</h2>
-      <div class="gallery">
-        <figure><img src="img/kettlebell.jpg" alt="창가를 따라 무게별로 놓인 케틀벨" width="900" height="1200"><figcaption>무게별 케틀벨과 창가 운동 공간</figcaption></figure>
-        <figure><img src="img/tools.jpg" alt="메디신볼, 아쿠아백, 불가리안백, 바이퍼, 플라이오 박스가 정리된 선반" width="900" height="1200" loading="lazy"><figcaption>아쿠아백 · 불가리안백 · 바이퍼 · 박스</figcaption></figure>
-        <figure><img src="img/floor.jpg" alt="고무 매트가 깔린 넓은 바닥과 박스, 랜드마인" width="900" height="1200" loading="lazy"><figcaption>그룹 수업이 열리는 넓은 바닥</figcaption></figure>
-      </div>
-    </div>
-  </section>
 
-  <section id="visit" class="band">
+  <section id="visit">
     <div class="wrap">
       <p class="eyebrow">처음 오시는 분</p>
       <h2>방문 전에 알아 두시면 좋아요</h2>
@@ -371,7 +376,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px}
             <dt>주차</dt><dd>무료 주차 가능해요</dd>
             <dt>편의시설</dt><dd>샤워실, 남녀 구분 화장실</dd>
             <dt>첫 시간</dt><dd>상담과 움직임 평가부터 진행해요</dd>
-            <dt>상담 시간</dt><dd>월~토 오전 9시 ~ 오후 8시</dd>
+            <dt>상담 시간</dt><dd>월~토 오전 9시 ~ 오후 9시</dd>
           </dl>
         </article>
         <article>
@@ -407,7 +412,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px}
 <footer>
   <div class="wrap">
     <span>무브앤플레이 순천점 · 전남 순천시 해룡면 신대로 8, 4층</span>
-    <span>상담 월~토 09:00~20:00</span>
+    <span>상담 월~토 09:00~21:00</span>
   </div>
 </footer>
 
