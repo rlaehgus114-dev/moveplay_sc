@@ -54,10 +54,25 @@ dialog::backdrop{background:rgba(0,0,0,.4)}
 dialog{max-height:90vh;overflow:auto}
 .hist div{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)}
 .hidden{display:none!important}
+/* 회원 출석 화면 (센터 태블릿용) */
+#kiosk{position:fixed;inset:0;z-index:30;background:var(--g);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}
+#kiosk h2{font-size:30px;margin:0 0 6px}
+#kiosk .kh{font-size:18px;opacity:.85;margin:0 0 22px;line-height:1.5}
+#kiosk .dots{display:flex;gap:14px;margin-bottom:24px}
+#kiosk .dots i{width:22px;height:22px;border-radius:50%;border:3px solid #fff}
+#kiosk .dots i.on{background:#fff}
+#kiosk .pad{display:grid;grid-template-columns:repeat(3,96px);gap:14px}
+#kiosk .pad button,#kiosk .kb{border:0;border-radius:16px;background:rgba(255,255,255,.14);color:#fff;font-size:30px;font-weight:700;height:84px}
+#kiosk .pad button:active,#kiosk .kb:active{background:rgba(255,255,255,.3)}
+#kiosk .kb{display:block;width:min(86vw,420px);font-size:22px;height:auto;padding:20px;margin:10px auto 0}
+#kiosk .kb.w{background:#fff;color:var(--g)}
+#kiosk .kb small{display:block;font-size:15px;font-weight:500;opacity:.8;margin-top:4px}
+#kiosk .big2{font-size:34px;font-weight:800;margin:0 0 10px}
+#kiosk .ex{position:absolute;right:14px;top:12px;background:none;border:0;color:rgba(255,255,255,.35);font-size:13px;padding:8px}
 </style>
 </head>
 <body>
-<header><h1>무플 관리자</h1><button id="btnOut" class="hidden">로그아웃</button></header>
+<header><h1>무플 관리자</h1><button id="btnKiosk" class="hidden">회원 출석 화면</button><button id="btnOut" class="hidden">로그아웃</button></header>
 <nav id="nav" class="hidden">
   <button data-t="check" class="on">출석</button>
   <button data-t="book">예약</button>
@@ -68,6 +83,7 @@ dialog{max-height:90vh;overflow:auto}
 </nav>
 <main id="app"><div class="center">불러오는 중…</div></main>
 <div class="toast" id="toast"></div>
+<div id="kiosk" class="hidden"></div>
 
 <dialog id="dlg"><div id="dlgBody"></div></dialog>
 
@@ -138,7 +154,10 @@ async function boot(cfg){
     if (user.email !== ADMIN_EMAIL) { app.innerHTML = `<div class="center">관리자 계정이 아니에요 (${esc(user.email)})<br><br><button class="btn ghost" id="o">다른 계정으로</button></div>`; $('#o').onclick = () => fb.signOut(auth); return; }
     $('#nav').classList.remove('hidden'); $('#btnOut').classList.remove('hidden');
     $('#btnOut').onclick = () => fb.signOut(auth).then(() => location.reload());
+    $('#btnKiosk').classList.remove('hidden'); $('#btnKiosk').onclick = kioskOn;
     await loadAll(); render();
+    let kOn = false; try { kOn = localStorage.getItem('mp_kiosk') === '1'; } catch(e) {}
+    if (kOn) kioskHome();
   });
 }
 
@@ -161,7 +180,14 @@ async function loadAll(){
   state.logs = ls.docs.map(d => ({ id: d.id, ...d.data() }));
   const bs = await fb.getDocs(fb.query(fb.collection(db, 'bookings'), fb.where('date', '>=', addDays(today(), -7))));
   state.books = bs.docs.map(d => ({ id: d.id, ...d.data() }));
+  state.loadedAt = Date.now();
 }
+// 다른 기기(센터 태블릿)에서 찍힌 출석도 보이도록, 앱으로 돌아오면 새로 불러오기
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible' || !db || !auth?.currentUser || !$('#kiosk').classList.contains('hidden')) return;
+  if (Date.now() - (state.loadedAt || 0) < 30000 || $('#dlg').open) return;
+  await loadAll(); render();
+});
 
 /* ---------- 계산 ---------- */
 const used = p => (p.usedBefore || 0) + (p.usedAfter || 0);
@@ -189,9 +215,11 @@ function status(p){
 }
 
 /* ---------- 화면 ---------- */
-document.querySelectorAll('#nav button').forEach(b => b.onclick = () => {
+document.querySelectorAll('#nav button').forEach(b => b.onclick = async () => {
   document.querySelectorAll('#nav button').forEach(x => x.classList.toggle('on', x === b));
-  state.tab = b.dataset.t; render();
+  state.tab = b.dataset.t;
+  if (['check', 'log'].includes(state.tab) && Date.now() - (state.loadedAt || 0) > 30000) await loadAll();
+  render();
 });
 
 function render(){ ({ check: renderCheck, book: renderBook, plan: renderPlan, members: renderMembers, log: renderLog, more: renderMore })[state.tab](); window.scrollTo(0, 0); }
@@ -296,12 +324,17 @@ function bookedTime(passId){
 }
 
 function renderCheck(){
+  const ckd = $('#ckDate')?.value || today();
   const done = new Set(state.logs.filter(l => l.date === today()).map(l => l.passId));
+  const byId = Object.fromEntries(state.passes.map(p => [p.id, p]));
+  const selfLogs = state.logs.filter(l => l.via === 'kiosk' && l.date === today() && (l.kind ? l.kind === '개인' : isPT(byId[l.passId] || {})));
   app.innerHTML = `
   <div class="toolbar"><input id="q" placeholder="이름 검색" value="${esc(state.q)}"><input id="ckDate" type="date" value="${today()}" style="max-width:150px"></div>
   <div class="chips">${['전체', '1:1', '2:1', '그룹'].map(f => `<button data-f="${f}" class="${state.filter === f ? 'on' : ''}">${f}</button>`).join('')}</div>
   <p class="hint">오늘 출석 ${done.size}명 · 이름을 누르면 상세 기록</p>
+  ${selfLogs.length ? `<div class="card" style="border-left:6px solid var(--amber)"><div class="name" style="font-size:15px">회원이 직접 출석한 개인 PT · 운동 기록 쓰기</div><div class="chipset">${selfLogs.map(l => `<button data-sw="${esc(l.name)}">${esc(l.name)}</button>`).join('')}</div></div>` : ''}
   ${passList(filtered(), true)}`;
+  app.querySelectorAll('[data-sw]').forEach(b => b.onclick = () => writeWorkout(b.dataset.sw, ckd));
   $('#q').oninput = e => { state.q = e.target.value; const pos = e.target.selectionStart; renderCheck(); const n = $('#q'); n.focus(); n.setSelectionRange(pos, pos); };
   app.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { state.filter = b.dataset.f; renderCheck(); });
   $('#ckDate').onchange = e => { const v = e.target.value; renderCheck(); $('#ckDate').value = v; };
@@ -426,6 +459,99 @@ function moneyCheckIn(p, date){
     closeDlg(); toast(`${p.name}님 ${kind} 출석 · 잔액 ${won(moneyLeft(p))}`); render();
     if (kind === '개인') writeWorkout(p.name, date);
   });
+}
+
+/* ---------- 회원 출석 화면 (센터 태블릿) ---------- */
+const mask = n => n.length <= 1 ? n : n.length === 2 ? n[0] + '*' : n[0] + '*'.repeat(n.length - 2) + n[n.length - 1];
+let kTimer;
+function kioskOn(){
+  let pin = '';
+  try { pin = localStorage.getItem('mp_kiosk_pin') || ''; } catch(e) {}
+  if (!pin) {
+    pin = (prompt('회원 출석 화면을 끌 때 쓸 숫자 4자리를 정해 주세요.\n(회원이 관리자 화면을 못 보게 막는 용도예요)') || '').trim();
+    if (!/^\d{4}$/.test(pin)) return toast('숫자 4자리로 정해 주세요');
+    try { localStorage.setItem('mp_kiosk_pin', pin); } catch(e) {}
+  }
+  try { localStorage.setItem('mp_kiosk', '1'); } catch(e) {}
+  kioskHome();
+}
+function kioskOff(){
+  let pin = ''; try { pin = localStorage.getItem('mp_kiosk_pin') || ''; } catch(e) {}
+  const v = prompt('관리자 화면으로 돌아가려면 숫자 4자리를 넣어 주세요');
+  if (v === null) return;
+  if (pin && v.trim() !== pin) return kioskMsg('번호가 달라요', '', 2000);
+  try { localStorage.removeItem('mp_kiosk'); } catch(e) {}
+  clearTimeout(kTimer); $('#kiosk').classList.add('hidden'); render();
+}
+function kioskShow(html, back){
+  const k = $('#kiosk'); k.classList.remove('hidden');
+  k.innerHTML = `<button class="ex" id="kx">관리자</button>${html}`;
+  $('#kx').onclick = kioskOff;
+  clearTimeout(kTimer);
+  if (back) kTimer = setTimeout(kioskHome, back);
+}
+function kioskMsg(title, sub, ms){ kioskShow(`<p class="big2">${title}</p><p class="kh">${sub}</p><button class="kb w" id="kh">처음으로</button>`, ms || 5000); $('#kh').onclick = kioskHome; }
+function kioskHome(){
+  let code = '';
+  kioskShow(`<h2>무브앤플레이 출석</h2><p class="kh">휴대폰 번호 <b>뒤 4자리</b>를 눌러 주세요</p>
+    <div class="dots">${'<i></i>'.repeat(4)}</div>
+    <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n => `<button data-n="${n}">${n}</button>`).join('')}<button data-n="del" style="font-size:20px">지움</button><button data-n="0">0</button><span></span></div>`);
+  const dots = [...document.querySelectorAll('#kiosk .dots i')];
+  document.querySelectorAll('#kiosk [data-n]').forEach(b => b.onclick = () => {
+    const n = b.dataset.n;
+    code = n === 'del' ? code.slice(0, -1) : (code + n).slice(0, 4);
+    dots.forEach((d, i) => d.classList.toggle('on', i < code.length));
+    if (code.length === 4) kioskFind(code);
+  });
+}
+async function kioskFind(code){
+  kioskShow('<p class="big2">확인 중…</p>');
+  try { await loadAll(); } catch(e) { return kioskMsg('인터넷 연결을 확인해 주세요', '선생님께 말씀해 주세요'); }
+  const ps = state.passes.filter(p => !p.archived && (p.phone4 === code || String(p.phone || '').replace(/\D/g, '').endsWith(code)));
+  if (!ps.length) return kioskMsg('등록된 번호가 없어요', '번호를 다시 눌러 보시거나 선생님께 말씀해 주세요');
+  kioskShow(`<p class="big2">본인 이름을 눌러 주세요</p>
+    ${ps.map(p => `<button class="kb w" data-kp="${p.id}">${esc(mask(p.name))}님<small>${esc(p.cls || p.kind || '')}${isMoney(p) ? '' : ' · 남은 ' + left(p) + '회'}</small></button>`).join('')}
+    <button class="kb" id="kh">처음으로</button>`, 30000);
+  $('#kh').onclick = kioskHome;
+  document.querySelectorAll('#kiosk [data-kp]').forEach(b => b.onclick = () => kioskPick(state.passes.find(p => p.id === b.dataset.kp)));
+}
+function kioskPick(p){
+  const date = today();
+  if (state.logs.some(l => l.passId === p.id && l.date === date)) return kioskMsg('오늘은 이미 출석했어요', `${esc(mask(p.name))}님, 오늘도 화이팅이에요!`);
+  if (!isMoney(p) && left(p) <= 0) return kioskMsg('남은 횟수가 없어요', '선생님께 재등록 상담을 받아 주세요');
+  if (isMoney(p)) {
+    kioskShow(`<p class="big2">오늘 어떤 수업인가요?</p>
+      <button class="kb w" data-kk="개인">개인 PT</button><button class="kb w" data-kk="그룹">그룹 수업</button>
+      <button class="kb" id="kh">처음으로</button>`, 30000);
+    $('#kh').onclick = kioskHome;
+    document.querySelectorAll('#kiosk [data-kk]').forEach(b => b.onclick = () => kioskSave(p, date, b.dataset.kk));
+  } else kioskSave(p, date);
+}
+async function kioskSave(p, date, kind){
+  kioskShow('<p class="big2">출석 중…</p>');
+  try {
+    const ref = fb.doc(fb.collection(db, 'attendance'));
+    const batch = fb.writeBatch(db);
+    const newLast = !p.lastDate || date > p.lastDate ? date : p.lastDate;
+    let log;
+    if (kind) {
+      const amount = kind === '개인' ? (p.priceP || 0) : (p.priceG || 0);
+      log = { passId: p.id, name: p.name, date, kind, amount, via: 'kiosk' };
+      batch.update(fb.doc(db, 'passes', p.id), { spent: fb.increment(amount), lastDate: newLast });
+      p.spent = (p.spent || 0) + amount;
+    } else {
+      log = { passId: p.id, name: p.name, date, via: 'kiosk' };
+      batch.update(fb.doc(db, 'passes', p.id), { usedAfter: fb.increment(1), lastDate: newLast });
+      p.usedAfter = (p.usedAfter || 0) + 1;
+    }
+    batch.set(ref, { ...log, createdAt: fb.serverTimestamp() });
+    await batch.commit();
+    p.lastDate = newLast; state.logs.unshift({ id: ref.id, ...log });
+  } catch(e) { return kioskMsg('출석이 안 됐어요', '선생님께 말씀해 주세요'); }
+  const l = left(p);
+  const sub = isMoney(p) ? (moneyLeft(p) < (p.priceP || 0) * 2 ? '잔액이 얼마 안 남았어요. 선생님께 문의해 주세요' : '오늘도 즐겁게 움직여요!')
+    : l <= 3 ? `남은 횟수 <b>${l}회</b> · 재등록은 선생님께 문의해 주세요` : `남은 횟수 <b>${l}회</b>`;
+  kioskMsg(`${esc(mask(p.name))}님 출석 완료!`, sub, 5000);
 }
 
 async function undo(logId){
