@@ -326,7 +326,7 @@ function renderCheck(){
   const ckd = $('#ckDate')?.value || today();
   const done = new Set(state.logs.filter(l => l.date === today()).map(l => l.passId));
   const byId = Object.fromEntries(state.passes.map(p => [p.id, p]));
-  const selfLogs = state.logs.filter(l => (l.via === 'kiosk' || l.via === 'qr') && l.date === today() && (l.kind ? l.kind === '개인' : isPT(byId[l.passId] || {})));
+  const selfLogs = state.logs.filter(l => ['kiosk', 'qr', 'form'].includes(l.via) && l.date === today() && (l.kind ? l.kind === '개인' : isPT(byId[l.passId] || {})));
   app.innerHTML = `
   <div class="toolbar"><input id="q" placeholder="이름 검색" value="${esc(state.q)}"><input id="ckDate" type="date" value="${today()}" style="max-width:150px"></div>
   <div class="chips">${['전체', '1:1', '2:1', '그룹'].map(f => `<button data-f="${f}" class="${state.filter === f ? 'on' : ''}">${f}</button>`).join('')}</div>
