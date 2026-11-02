@@ -72,7 +72,7 @@ dialog{max-height:90vh;overflow:auto}
 </style>
 </head>
 <body>
-<header><h1>무플 관리자</h1><button id="btnKiosk" class="hidden">회원 출석 화면</button><button id="btnOut" class="hidden">로그아웃</button></header>
+<header><h1>무플 관리자</h1><button id="btnOut" class="hidden">로그아웃</button></header>
 <nav id="nav" class="hidden">
   <button data-t="check" class="on">출석</button>
   <button data-t="book">예약</button>
@@ -154,7 +154,6 @@ async function boot(cfg){
     if (user.email !== ADMIN_EMAIL) { app.innerHTML = `<div class="center">관리자 계정이 아니에요 (${esc(user.email)})<br><br><button class="btn ghost" id="o">다른 계정으로</button></div>`; $('#o').onclick = () => fb.signOut(auth); return; }
     $('#nav').classList.remove('hidden'); $('#btnOut').classList.remove('hidden');
     $('#btnOut').onclick = () => fb.signOut(auth).then(() => location.reload());
-    $('#btnKiosk').classList.remove('hidden'); $('#btnKiosk').onclick = kioskOn;
     await loadAll(); render();
     let kOn = false; try { kOn = localStorage.getItem('mp_kiosk') === '1'; } catch(e) {}
     if (kOn) kioskHome();
@@ -327,7 +326,7 @@ function renderCheck(){
   const ckd = $('#ckDate')?.value || today();
   const done = new Set(state.logs.filter(l => l.date === today()).map(l => l.passId));
   const byId = Object.fromEntries(state.passes.map(p => [p.id, p]));
-  const selfLogs = state.logs.filter(l => l.via === 'kiosk' && l.date === today() && (l.kind ? l.kind === '개인' : isPT(byId[l.passId] || {})));
+  const selfLogs = state.logs.filter(l => (l.via === 'kiosk' || l.via === 'qr') && l.date === today() && (l.kind ? l.kind === '개인' : isPT(byId[l.passId] || {})));
   app.innerHTML = `
   <div class="toolbar"><input id="q" placeholder="이름 검색" value="${esc(state.q)}"><input id="ckDate" type="date" value="${today()}" style="max-width:150px"></div>
   <div class="chips">${['전체', '1:1', '2:1', '그룹'].map(f => `<button data-f="${f}" class="${state.filter === f ? 'on' : ''}">${f}</button>`).join('')}</div>
