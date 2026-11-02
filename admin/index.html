@@ -61,6 +61,7 @@ dialog{max-height:90vh;overflow:auto}
 <nav id="nav" class="hidden">
   <button data-t="check" class="on">출석</button>
   <button data-t="book">예약</button>
+  <button data-t="plan">계획</button>
   <button data-t="members">회원</button>
   <button data-t="log">기록</button>
   <button data-t="more">설정</button>
@@ -193,7 +194,7 @@ document.querySelectorAll('#nav button').forEach(b => b.onclick = () => {
   state.tab = b.dataset.t; render();
 });
 
-function render(){ ({ check: renderCheck, book: renderBook, members: renderMembers, log: renderLog, more: renderMore })[state.tab](); window.scrollTo(0, 0); }
+function render(){ ({ check: renderCheck, book: renderBook, plan: renderPlan, members: renderMembers, log: renderLog, more: renderMore })[state.tab](); window.scrollTo(0, 0); }
 
 /* ---------- 예약 ---------- */
 function renderBook(){
@@ -473,11 +474,19 @@ async function writeWorkout(member, date, existing){
   const last = wks.find(w => !existing || w.id !== existing.id);
   const moves = topMoves(wks);
   const w = existing || { date: date || today(), items: [], homework: '', note: '' };
+  let plan = null;
+  if (!existing) {
+    const ps = (await loadPlans(member)).filter(x => !x.done);
+    const d0 = w.date, wk = weekStart(d0);
+    plan = ps.find(x => x.day === d0) || ps.filter(x => x.week === wk).sort((a, b) => (a.day || '9').localeCompare(b.day || '9'))[0] || null;
+    if (plan) { w.items = plan.items || []; w.homework = plan.homework || ''; }
+  }
   dialog(`
     <div class="name">${esc(member)}님 ${existing ? '운동 기록 수정' : '오늘 운동 기록'}</div>
     <label>날짜</label><input type="date" id="w_d" value="${esc(w.date && !w.date.endsWith('-00') ? w.date : today())}">
     ${last && !existing ? `<div class="wk" style="background:var(--bg)"><div class="d"><span>지난 수업 · ${esc(wkDay(last))}</span><button class="btn ghost" id="w_copy" style="padding:2px 8px;font-size:12px">그대로 불러오기</button></div><ul>${(last.items || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul>${last.homework ? `<div class="hw">숙제 · ${esc(last.homework)}</div>` : ''}</div>` : ''}
     ${moves.length ? `<label>자주 한 운동 (누르면 추가)</label><div class="chipset">${moves.map(m => `<button data-mv="${esc(m)}">${esc(m)}</button>`).join('')}</div>` : ''}
+    ${plan ? `<div class="wk" style="border-color:var(--g)"><div class="d"><span>이번 주 계획${plan.title ? ' · ' + esc(plan.title) : ''}을 불러왔어요</span></div><p class="hint" style="margin-top:4px">실제로 한 대로 고쳐서 저장하세요</p></div>` : ''}
     <label>오늘 한 운동 (한 줄에 하나씩)</label>
     <textarea id="w_i" rows="7" placeholder="예) KB 스윙 80개 - 12kg">${esc((w.items || []).join('\n'))}</textarea>
     <label>숙제</label><input id="w_h" value="${esc(w.homework || '')}" placeholder="예) 겟업 10번, 벽 밀기">
@@ -495,7 +504,67 @@ async function writeWorkout(member, date, existing){
     const d = { member, date: $('#w_d').value, dateLabel: '', items, homework: $('#w_h').value.trim(), note: $('#w_n').value.trim() };
     if (existing) await fb.updateDoc(fb.doc(db, 'workouts', existing.id), d);
     else await fb.addDoc(fb.collection(db, 'workouts'), { ...d, createdAt: fb.serverTimestamp() });
+    if (plan) await fb.updateDoc(fb.doc(db, 'plans', plan.id), { done: true, doneDate: d.date });
     closeDlg(); toast('운동 기록을 저장했어요');
+  };
+}
+
+/* ---------- 주간 계획 ---------- */
+const weekStart = s => { const d = new Date(s + 'T00:00:00Z'); const k = (d.getUTCDay() + 6) % 7; d.setUTCDate(d.getUTCDate() - k); return d.toISOString().slice(0, 10); };
+async function loadPlans(member){
+  const snap = await fb.getDocs(fb.query(fb.collection(db, 'plans'), fb.where('member', '==', member)));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+async function renderPlan(){
+  const wk = state.planWeek || (state.planWeek = weekStart(today()));
+  const snap = await fb.getDocs(fb.query(fb.collection(db, 'plans'), fb.where('week', '==', wk)));
+  const plans = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const names = [...new Set(state.passes.filter(p => !p.archived && (isPT(p) || isMoney(p))).map(p => p.name))].sort((a, b) => a.localeCompare(b, 'ko'));
+  const todo = names.filter(n => !plans.some(x => x.member === n));
+  app.innerHTML = `
+  <div class="toolbar"><button class="btn ghost" id="pp">◀</button><div class="grow name" style="text-align:center;align-self:center">${fmtDay(wk)} 주</div><button class="btn ghost" id="pn">▶</button></div>
+  <p class="hint">월요일에 이번 주 운동을 짜 두면, 수업 날 출석을 누를 때 자동으로 불러와요. ${todo.length ? `<b style="color:var(--amber)">아직 안 짠 회원 ${todo.length}명</b>` : '<b style="color:var(--g)">모두 짰어요</b>'}</p>
+  ${names.map(n => { const ps = plans.filter(x => x.member === n).sort((a, b) => (a.day || '9').localeCompare(b.day || '9')); return `
+    <div class="card"><div class="row"><div class="grow name">${esc(n)}</div><button class="btn" data-np="${esc(n)}" style="padding:6px 12px;font-size:14px">+ 계획</button></div>
+    ${ps.map(x => `<div class="wk"><div class="d"><span>${x.day ? esc(fmtDay(x.day)) : '요일 미정'}${x.title ? ' · ' + esc(x.title) : ''}${x.done ? ' · <span style="color:var(--mut)">완료</span>' : ''}</span><button class="btn ghost" data-ep="${x.id}" style="padding:2px 8px;font-size:12px">수정</button></div><ul>${(x.items || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul>${x.homework ? `<div class="hw">숙제 · ${esc(x.homework)}</div>` : ''}</div>`).join('') || '<p class="hint">아직 계획 없음</p>'}
+    </div>`; }).join('')}`;
+  $('#pp').onclick = () => { state.planWeek = addDays(wk, -7); renderPlan(); };
+  $('#pn').onclick = () => { state.planWeek = addDays(wk, 7); renderPlan(); };
+  app.querySelectorAll('[data-np]').forEach(b => b.onclick = () => editPlan(b.dataset.np, wk));
+  app.querySelectorAll('[data-ep]').forEach(b => b.onclick = () => { const x = plans.find(y => y.id === b.dataset.ep); editPlan(x.member, wk, x); });
+}
+async function editPlan(member, wk, ex){
+  const [wks, ps] = await Promise.all([loadWorkouts(member), loadPlans(member)]);
+  const last = wks[0], prev = ps.filter(x => x.id !== (ex && ex.id)).sort((a, b) => (b.week + (b.day || '')).localeCompare(a.week + (a.day || '')))[0];
+  const moves = topMoves(wks);
+  const days = [0, 1, 2, 3, 4, 5].map(i => addDays(wk, i));
+  const x = ex || { day: '', title: '', items: [], homework: '' };
+  dialog(`
+    <div class="name">${esc(member)}님 ${fmtDay(wk)} 주 계획</div>
+    <label>수업 요일 (모르면 비워 두세요)</label>
+    <select id="p_d"><option value="">요일 미정</option>${days.map(d => `<option value="${d}" ${x.day === d ? 'selected' : ''}>${fmtDay(d)}</option>`).join('')}</select>
+    <label>제목 (선택, 예: 하체·코어)</label><input id="p_t" value="${esc(x.title || '')}">
+    ${last ? `<div class="wk" style="background:var(--bg)"><div class="d"><span>지난 수업 · ${esc(wkDay(last))}</span><button class="btn ghost" id="p_last" style="padding:2px 8px;font-size:12px">불러오기</button></div><ul>${(last.items || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>` : ''}
+    ${prev ? `<div class="row" style="margin-top:6px"><span class="grow hint">지난 계획 (${prev.day ? esc(fmtDay(prev.day)) : esc(fmtDay(prev.week)) + ' 주'})</span><button class="btn ghost" id="p_prev" style="padding:2px 8px;font-size:12px">불러오기</button></div>` : ''}
+    ${moves.length ? `<label>자주 한 운동 (누르면 추가)</label><div class="chipset">${moves.map(m => `<button data-mv="${esc(m)}">${esc(m)}</button>`).join('')}</div>` : ''}
+    <label>할 운동 (한 줄에 하나씩)</label>
+    <textarea id="p_i" rows="7">${esc((x.items || []).join('\n'))}</textarea>
+    <label>숙제 (선택)</label><input id="p_h" value="${esc(x.homework || '')}">
+    <div class="row" style="margin-top:14px;gap:8px">${ex ? '<button class="btn red" id="p_del">삭제</button>' : ''}<span class="grow"></span><button class="btn ghost" id="cn">닫기</button><button class="btn" id="sv">저장</button></div>`);
+  const ta = $('#p_i');
+  const add = t => { ta.value = (ta.value.trim() ? ta.value.replace(/\s+$/, '') + '\n' : '') + t; };
+  if ($('#p_last')) $('#p_last').onclick = () => { ta.value = (last.items || []).join('\n'); toast('지난 수업을 불러왔어요. 이번 주에 바꿀 것만 고치세요'); };
+  if ($('#p_prev')) $('#p_prev').onclick = () => { ta.value = (prev.items || []).join('\n'); if (!$('#p_h').value) $('#p_h').value = prev.homework || ''; toast('지난 계획을 불러왔어요'); };
+  document.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => add(b.dataset.mv));
+  $('#cn').onclick = closeDlg;
+  if ($('#p_del')) $('#p_del').onclick = async () => { if (!confirm('이 계획을 지울까요?')) return; await fb.deleteDoc(fb.doc(db, 'plans', ex.id)); closeDlg(); renderPlan(); };
+  $('#sv').onclick = async () => {
+    const items = ta.value.split('\n').map(t => t.trim()).filter(Boolean);
+    if (!items.length) return toast('운동을 한 줄 이상 적어 주세요');
+    const d = { member, week: wk, day: $('#p_d').value, title: $('#p_t').value.trim(), items, homework: $('#p_h').value.trim() };
+    if (ex) await fb.updateDoc(fb.doc(db, 'plans', ex.id), d);
+    else await fb.addDoc(fb.collection(db, 'plans'), { ...d, done: false, createdAt: fb.serverTimestamp() });
+    closeDlg(); toast('계획을 저장했어요'); if (state.tab === 'plan') renderPlan();
   };
 }
 
