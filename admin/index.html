@@ -515,15 +515,38 @@ async function loadPlans(member){
   const snap = await fb.getDocs(fb.query(fb.collection(db, 'plans'), fb.where('member', '==', member)));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
+async function loadGroupLogs(group){
+  const snap = await fb.getDocs(fb.query(fb.collection(db, 'groupWorkouts'), fb.where('group', '==', group)));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.date.localeCompare(a.date));
+}
+function weekGroupClasses(wk){
+  const out = [];
+  for (let i = 0; i < 7; i++) {
+    const day = addDays(wk, i), byName = {};
+    (GROUP_SLOTS[wdOf(day)] || []).forEach(([t, n]) => (byName[n] = byName[n] || []).push(t));
+    Object.entries(byName).forEach(([n, ts]) => out.push({ group: n, day, times: ts }));
+  }
+  return out;
+}
 async function renderPlan(){
   const wk = state.planWeek || (state.planWeek = weekStart(today()));
   const snap = await fb.getDocs(fb.query(fb.collection(db, 'plans'), fb.where('week', '==', wk)));
   const plans = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   const names = [...new Set(state.passes.filter(p => !p.archived && (isPT(p) || isMoney(p))).map(p => p.name))].sort((a, b) => a.localeCompare(b, 'ko'));
   const todo = names.filter(n => !plans.some(x => x.member === n));
+  const gcs = weekGroupClasses(wk);
+  const gHtml = gcs.map(g => { const x = plans.find(y => y.group === g.group && y.day === g.day); return `
+    <div class="card" style="border-left:6px solid var(--g)"><div class="row"><div class="grow"><span class="name">${esc(fmtDay(g.day))} ${esc(g.group)}</span> <span class="sub">${g.times.join(' · ')}</span></div>
+      ${x ? (x.done ? '<span class="tag">기록 완료</span>' : x.day > today() ? '' : `<button class="btn" data-gd="${x.id}" style="padding:6px 10px;font-size:13px">수업 끝 · 기록</button>`) : ''}
+      <button class="btn ghost" data-${x ? 'ep' : 'gp'}="${x ? x.id : esc(g.group + '|' + g.day)}" style="padding:6px 10px;font-size:13px">${x ? '수정' : '+ 계획'}</button></div>
+    ${x ? `<div class="wk">${x.title ? `<div class="d"><span>${esc(x.title)}</span></div>` : ''}<ul>${(x.items || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>` : '<p class="hint">아직 계획 없음</p>'}
+    </div>`; }).join('');
   app.innerHTML = `
   <div class="toolbar"><button class="btn ghost" id="pp">◀</button><div class="grow name" style="text-align:center;align-self:center">${fmtDay(wk)} 주</div><button class="btn ghost" id="pn">▶</button></div>
-  <p class="hint">월요일에 이번 주 운동을 짜 두면, 수업 날 출석을 누를 때 자동으로 불러와요. ${todo.length ? `<b style="color:var(--amber)">아직 안 짠 회원 ${todo.length}명</b>` : '<b style="color:var(--g)">모두 짰어요</b>'}</p>
+  <p class="hint">월요일에 이번 주 운동을 짜 두세요. 개인 PT는 출석할 때 자동으로 불러오고, 그룹 수업은 수업 날 '수업 끝 · 기록'을 누르면 돼요. ${todo.length ? `<b style="color:var(--amber)">개인 PT 아직 안 짠 회원 ${todo.length}명</b>` : '<b style="color:var(--g)">모두 짰어요</b>'}</p>
+  <div class="name" style="margin:14px 0 8px">그룹 수업</div>
+  ${gHtml}
+  <div class="name" style="margin:18px 0 8px">개인 PT</div>
   ${names.map(n => { const ps = plans.filter(x => x.member === n).sort((a, b) => (a.day || '9').localeCompare(b.day || '9')); return `
     <div class="card"><div class="row"><div class="grow name">${esc(n)}</div><button class="btn" data-np="${esc(n)}" style="padding:6px 12px;font-size:14px">+ 계획</button></div>
     ${ps.map(x => `<div class="wk"><div class="d"><span>${x.day ? esc(fmtDay(x.day)) : '요일 미정'}${x.title ? ' · ' + esc(x.title) : ''}${x.done ? ' · <span style="color:var(--mut)">완료</span>' : ''}</span><button class="btn ghost" data-ep="${x.id}" style="padding:2px 8px;font-size:12px">수정</button></div><ul>${(x.items || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul>${x.homework ? `<div class="hw">숙제 · ${esc(x.homework)}</div>` : ''}</div>`).join('') || '<p class="hint">아직 계획 없음</p>'}
@@ -531,20 +554,42 @@ async function renderPlan(){
   $('#pp').onclick = () => { state.planWeek = addDays(wk, -7); renderPlan(); };
   $('#pn').onclick = () => { state.planWeek = addDays(wk, 7); renderPlan(); };
   app.querySelectorAll('[data-np]').forEach(b => b.onclick = () => editPlan(b.dataset.np, wk));
-  app.querySelectorAll('[data-ep]').forEach(b => b.onclick = () => { const x = plans.find(y => y.id === b.dataset.ep); editPlan(x.member, wk, x); });
+  app.querySelectorAll('[data-ep]').forEach(b => b.onclick = () => { const x = plans.find(y => y.id === b.dataset.ep); x.group ? editPlan(null, wk, x, x.group, x.day) : editPlan(x.member, wk, x); });
+  app.querySelectorAll('[data-gp]').forEach(b => b.onclick = () => { const [g, d] = b.dataset.gp.split('|'); editPlan(null, wk, null, g, d); });
+  app.querySelectorAll('[data-gd]').forEach(b => b.onclick = () => groupDone(plans.find(y => y.id === b.dataset.gd)));
 }
-async function editPlan(member, wk, ex){
-  const [wks, ps] = await Promise.all([loadWorkouts(member), loadPlans(member)]);
+function groupDone(x){
+  dialog(`<div class="name">${esc(fmtDay(x.day))} ${esc(x.group)} 수업 기록</div>
+    <p class="hint">계획대로 했으면 그대로 저장, 바뀐 건 고쳐서 저장하세요.</p>
+    <label>한 운동</label><textarea id="g_i" rows="7">${esc((x.items || []).join('\n'))}</textarea>
+    <label>메모 (분위기·다음에 바꿀 점)</label><input id="g_n">
+    <div class="row" style="margin-top:14px;gap:8px"><span class="grow"></span><button class="btn ghost" id="cn">닫기</button><button class="btn" id="sv">저장</button></div>`);
+  $('#cn').onclick = closeDlg;
+  $('#sv').onclick = async () => {
+    const items = $('#g_i').value.split('\n').map(t => t.trim()).filter(Boolean);
+    await fb.addDoc(fb.collection(db, 'groupWorkouts'), { group: x.group, date: x.day, items, note: $('#g_n').value.trim(), createdAt: fb.serverTimestamp() });
+    await fb.updateDoc(fb.doc(db, 'plans', x.id), { done: true, doneDate: x.day, items });
+    closeDlg(); toast('그룹 수업 기록을 저장했어요'); renderPlan();
+  };
+}
+async function editPlan(member, wk, ex, group, fixedDay){
+  let wks, ps;
+  if (group) {
+    wks = await loadGroupLogs(group);
+    const sp = await fb.getDocs(fb.query(fb.collection(db, 'plans'), fb.where('group', '==', group)));
+    ps = sp.docs.map(d => ({ id: d.id, ...d.data() }));
+  } else [wks, ps] = await Promise.all([loadWorkouts(member), loadPlans(member)]);
   const last = wks[0], prev = ps.filter(x => x.id !== (ex && ex.id)).sort((a, b) => (b.week + (b.day || '')).localeCompare(a.week + (a.day || '')))[0];
   const moves = topMoves(wks);
   const days = [0, 1, 2, 3, 4, 5].map(i => addDays(wk, i));
-  const x = ex || { day: '', title: '', items: [], homework: '' };
+  const x = ex || { day: fixedDay || '', title: '', items: [], homework: '' };
   dialog(`
-    <div class="name">${esc(member)}님 ${fmtDay(wk)} 주 계획</div>
-    <label>수업 요일 (모르면 비워 두세요)</label>
-    <select id="p_d"><option value="">요일 미정</option>${days.map(d => `<option value="${d}" ${x.day === d ? 'selected' : ''}>${fmtDay(d)}</option>`).join('')}</select>
+    <div class="name">${group ? esc(fmtDay(fixedDay)) + ' ' + esc(group) : esc(member) + '님'} ${group ? '수업' : fmtDay(wk) + ' 주'} 계획</div>
+    ${group ? '<p class="hint">같은 날 모든 타임에 같은 계획을 써요.</p>' : ''}
+    <label style="${group ? 'display:none' : ''}">수업 요일 (모르면 비워 두세요)</label>
+    <select id="p_d" style="${group ? 'display:none' : ''}"><option value="">요일 미정</option>${days.map(d => `<option value="${d}" ${x.day === d ? 'selected' : ''}>${fmtDay(d)}</option>`).join('')}</select>
     <label>제목 (선택, 예: 하체·코어)</label><input id="p_t" value="${esc(x.title || '')}">
-    ${last ? `<div class="wk" style="background:var(--bg)"><div class="d"><span>지난 수업 · ${esc(wkDay(last))}</span><button class="btn ghost" id="p_last" style="padding:2px 8px;font-size:12px">불러오기</button></div><ul>${(last.items || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>` : ''}
+    ${last ? `<div class="wk" style="background:var(--bg)"><div class="d"><span>지난 ${group ? '같은 수업' : '수업'} · ${esc(wkDay(last))}</span><button class="btn ghost" id="p_last" style="padding:2px 8px;font-size:12px">불러오기</button></div><ul>${(last.items || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>` : ''}
     ${prev ? `<div class="row" style="margin-top:6px"><span class="grow hint">지난 계획 (${prev.day ? esc(fmtDay(prev.day)) : esc(fmtDay(prev.week)) + ' 주'})</span><button class="btn ghost" id="p_prev" style="padding:2px 8px;font-size:12px">불러오기</button></div>` : ''}
     ${moves.length ? `<label>자주 한 운동 (누르면 추가)</label><div class="chipset">${moves.map(m => `<button data-mv="${esc(m)}">${esc(m)}</button>`).join('')}</div>` : ''}
     <label>할 운동 (한 줄에 하나씩)</label>
@@ -561,7 +606,7 @@ async function editPlan(member, wk, ex){
   $('#sv').onclick = async () => {
     const items = ta.value.split('\n').map(t => t.trim()).filter(Boolean);
     if (!items.length) return toast('운동을 한 줄 이상 적어 주세요');
-    const d = { member, week: wk, day: $('#p_d').value, title: $('#p_t').value.trim(), items, homework: $('#p_h').value.trim() };
+    const d = { member: member || '', group: group || '', week: wk, day: group ? fixedDay : $('#p_d').value, title: $('#p_t').value.trim(), items, homework: $('#p_h').value.trim() };
     if (ex) await fb.updateDoc(fb.doc(db, 'plans', ex.id), d);
     else await fb.addDoc(fb.collection(db, 'plans'), { ...d, done: false, createdAt: fb.serverTimestamp() });
     closeDlg(); toast('계획을 저장했어요'); if (state.tab === 'plan') renderPlan();
@@ -575,6 +620,12 @@ async function openPass(id){
   const [s, c] = status(p);
   const [wks, prof] = await Promise.all([loadWorkouts(p.name), fb.getDoc(fb.doc(db, 'profiles', p.name))]);
   const goal = prof.exists() ? (prof.data().goal || '') : '';
+  let gHist = [];
+  if (!isPT(p) && !isMoney(p) && rows.length) {
+    const ds = [...new Set(rows.map(r => r.date))].slice(0, 10);
+    const gs = await fb.getDocs(fb.query(fb.collection(db, 'groupWorkouts'), fb.where('date', 'in', ds)));
+    gHist = gs.docs.map(d => d.data()).sort((a, b) => b.date.localeCompare(a.date));
+  }
   dialog(`
     <div class="name">${esc(p.name)}<span class="tag ${c}">${s}</span></div>
     <p style="margin:8px 0" class="hint"><b style="color:var(--ink)">목표</b> ${goal ? esc(goal) : '아직 없음'} <button class="btn ghost" id="gl" style="padding:2px 8px;font-size:12px">수정</button></p>
@@ -587,6 +638,7 @@ async function openPass(id){
     <div class="row" style="margin-top:6px"><div class="grow name" style="font-size:15px">운동 기록 ${wks.length}회</div><button class="btn" id="wn" style="padding:6px 12px;font-size:14px">+ 오늘 기록</button></div>
     ${wks.slice(0, 2).map(w => wkCard(w)).join('') || '<p class="hint">아직 없음</p>'}
     ${wks.length > 2 ? '<button class="btn ghost" id="wa" style="margin-top:8px;width:100%">운동 기록 전체 보기</button>' : ''}
+    ${gHist.length ? `<div class="name" style="font-size:15px;margin-top:12px">참여한 그룹 수업</div>${gHist.slice(0, 3).map(g => `<div class="wk"><div class="d"><span>${esc(fmtDay(g.date))} · ${esc(g.group)}</span></div><ul>${g.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>`).join('')}` : ''}
     <div class="name" style="font-size:14px;margin-top:14px">앱 출석 기록 ${rows.length}회</div>
     <div class="hist">${rows.map(r => `<div><span>${esc(r.date)}</span><span>${r.amount ? esc(r.kind) + ' −' + won(r.amount) : ''}</span></div>`).join('') || '<p class="hint">아직 없음</p>'}</div>
     <div class="row" style="margin-top:14px;gap:8px">
