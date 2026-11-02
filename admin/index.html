@@ -377,6 +377,9 @@ function renderMore(){
   <div class="card"><div class="name">휴대폰 번호 한 번에 넣기</div>
     <p class="hint">받은 <b>무플_전화번호.json</b> 파일을 선택하면 이름이 같은 회원에게 번호가 들어가요.</p>
     <input type="file" id="phImp" accept=".json,application/json"></div>
+  <div class="card"><div class="name">출석 QR 인쇄</div>
+    <p class="hint">센터 입구에 붙일 QR을 뽑아요. 회원이 자기 폰 카메라로 찍으면 출석돼요.<br>QR 사진이 밖으로 돌았다면 '새로 만들기'를 누르세요. 예전 QR은 바로 못 쓰게 돼요.</p>
+    <div class="row" style="gap:8px"><button class="btn" id="qrP">QR 인쇄하기</button><button class="btn ghost" id="qrN">새로 만들기</button></div></div>
   <div class="card"><div class="name">백업 내려받기</div>
     <p class="hint">이용권과 출석 기록 전체를 파일로 저장해요. 한 달에 한 번 받아 두세요.</p>
     <button class="btn ghost" id="bak">백업 파일 받기</button></div>
@@ -401,6 +404,8 @@ function renderMore(){
     toast(`운동 기록 ${list.length}개를 가져왔어요`);
   };
   $('#bak').onclick = backup;
+  $('#qrP').onclick = () => qrPrint(false);
+  $('#qrN').onclick = () => { if (confirm('QR을 새로 만들까요? 지금 붙어 있는 QR은 더 이상 안 돼요.')) qrPrint(true); };
   $('#phImp').onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
     let map; try { map = JSON.parse(await f.text()); } catch (er) { return toast('파일을 읽을 수 없어요'); }
@@ -458,6 +463,35 @@ function moneyCheckIn(p, date){
     closeDlg(); toast(`${p.name}님 ${kind} 출석 · 잔액 ${won(moneyLeft(p))}`); render();
     if (kind === '개인') writeWorkout(p.name, date);
   });
+}
+
+/* ---------- 출석 QR ---------- */
+const CHECK_URL = 'https://rlaehgus114-dev.github.io/moveplay_sc/check/';
+async function qrPrint(renew){
+  const w = window.open('', '_blank');
+  if (!w) return toast('팝업이 막혀 있어요. 팝업을 허용해 주세요');
+  w.document.write('<p style="font:20px sans-serif;padding:40px">QR 만드는 중…</p>');
+  try {
+    const ref = fb.doc(db, 'config', 'qr');
+    let key = renew ? '' : ((await fb.getDoc(ref)).data() || {}).key;
+    if (!key) {
+      const a = new Uint8Array(12); crypto.getRandomValues(a);
+      key = [...a].map(b => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 56]).join('');
+      await fb.setDoc(ref, { key, updatedAt: fb.serverTimestamp() });
+    }
+    if (!window.qrcode) await new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js'; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
+    const q = window.qrcode(0, 'M'); q.addData(CHECK_URL + '?k=' + key); q.make();
+    w.document.open();
+    w.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>무브앤플레이 출석 QR</title><style>
+      @page{size:A4;margin:0}body{margin:0;font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:#1d2421}
+      .p{width:210mm;height:297mm;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border-top:18mm solid #1f6f4a}
+      h1{font-size:44pt;margin:0 0 6mm;letter-spacing:-.03em}p{font-size:18pt;margin:0 0 12mm;color:#4a524d;line-height:1.6}
+      .q svg{width:120mm;height:120mm}.s{margin-top:12mm;font-size:15pt;color:#6b746f;line-height:1.7}b{color:#1f6f4a}</style></head><body><div class="p">
+      <h1>출석 QR</h1><p>휴대폰 카메라로 찍고<br><b>출석하기</b>를 눌러 주세요</p><div class="q">${q.createSvgTag({ cellSize: 8, margin: 2, scalable: true })}</div>
+      <div class="s">처음 한 번만 휴대폰 번호를 넣으면<br>다음부터는 버튼 하나로 출석돼요<br><br>무브앤플레이 순천점</div></div>
+      <script>setTimeout(()=>print(),400)<\/script></body></html>`);
+    w.document.close();
+  } catch(e) { w.close(); toast('QR을 못 만들었어요: ' + e.message); }
 }
 
 /* ---------- 회원 출석 화면 (센터 태블릿) ---------- */
