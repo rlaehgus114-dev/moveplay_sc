@@ -719,11 +719,8 @@ function weekGroupClasses(wk){
   const out = [];
   for (let i = 0; i < 7; i++) {
     const day = addDays(wk, i);
-    // 타임마다 한 카드. 같은 수업·같은 시간이 다른 요일에도 있으면(같은 회원) 한 카드로 합침 (예: 화·금 케틀벨 10:00)
-    (GROUP_SLOTS[wdOf(day)] || []).forEach(([t, n]) => {
-      const same = out.find(o => o.group === n && o.time === t);
-      if (same) same.days.push(day); else out.push({ group: n, day, days: [day], time: t, times: [t] });
-    });
+    // 요일·타임마다 카드 하나 (다른 요일·타임 계획은 편집 창에서 불러오기)
+    (GROUP_SLOTS[wdOf(day)] || []).forEach(([t, n]) => out.push({ group: n, day, days: [day], time: t, times: [t] }));
   }
   return out;
 }
@@ -736,7 +733,7 @@ async function renderPlan(){
   const names = [...new Set(state.passes.filter(p => !p.archived && (isPT(p) || isMoney(p))).map(p => p.name))].sort((a, b) => a.localeCompare(b, 'ko'));
   const todo = names.filter(n => !plans.some(x => x.member === n));
   const gcs = weekGroupClasses(wk);
-  const slotPlan = g => plans.find(y => y.group === g.group && y.time === g.time && g.days.includes(y.day)) || plans.find(y => y.group === g.group && !y.time && g.days.includes(y.day));
+  const slotPlan = g => plans.find(y => y.group === g.group && y.time === g.time && g.days.includes(y.day)) || plans.find(y => y.group === g.group && !y.time && (y.days || [y.day]).some(d => g.days.includes(d)));
   const gHtml = gcs.map(g => { const x = slotPlan(g); const shared = x && !x.time; const dd = x ? (x.doneDays || (x.done ? [x.day] : [])) : []; const isDone = d => shared ? dd.includes(d + ' ' + g.time) : dd.includes(d) || dd.includes(d + ' ' + g.time); return `
     <div class="card" style="border-left:6px solid var(--g)"><div class="row"><div class="grow"><span class="name">${esc(fmtDays(g.days))} ${esc(g.time)}</span> <span class="sub">${esc(g.group)}</span></div>
       ${x ? g.days.map(d => isDone(d) ? `<span class="tag">${g.days.length > 1 ? shortWd(d) + ' ' : ''}기록 완료</span>` : d > today() ? '' : `<button class="btn" data-gd="${x.id}|${d}|${g.time}" style="padding:6px 10px;font-size:13px">${g.days.length > 1 ? shortWd(d) + ' ' : ''}수업 끝 · 기록</button>`).join('') : ''}
@@ -795,11 +792,11 @@ async function editPlan(member, wk, ex, group, fixedDays, time, weekPlans, base)
   const days = [0, 1, 2, 3, 4, 5].map(i => addDays(wk, i));
   const x = ex || { day: fixedDay || '', title: base ? base.title || '' : '', items: base ? base.items || [] : [], homework: '' };
   // 같은 날 다른 타임 계획 (불러오기용)
-  const sibs = group ? (weekPlans || []).filter(y => y.group === group && y.time && y.time !== time && fixedDays.includes(y.day)).sort((a, b) => a.time.localeCompare(b.time)) : [];
+  const sibs = group ? (weekPlans || []).filter(y => y.group === group && y.id !== (ex && ex.id) && !(y.time === time && fixedDays.includes(y.day))).sort((a, b) => (a.day + (a.time || '')).localeCompare(b.day + (b.time || ''))) : [];
   dialog(`
     <div class="name">${group ? esc(fmtDays(fixedDays)) + ' ' + esc(time) + ' ' + esc(group) : esc(member) + '님'} ${group ? '수업' : fmtDay(wk) + ' 주'} 계획</div>
     ${group ? `<p class="hint">${time ? esc(time) + ' 타임만의 계획이에요.' + (fixedDays.length > 1 ? ' (' + fixedDays.map(shortWd).join('·') + ' 같은 계획)' : '') : '예전에 만든 모든 타임 공통 계획이에요.'}${base && !ex ? ' 공통 계획을 채워 뒀어요. 이 타임에 맞게 고치세요.' : ''}</p>` : ''}
-    ${sibs.length ? `<label>같은 날 다른 타임 계획 불러오기</label><div class="chipset">${sibs.map(y => `<button data-sib="${y.id}">${esc(y.time)}${y.title ? ' · ' + esc(y.title) : ''}</button>`).join('')}</div>` : ''}
+    ${sibs.length ? `<label>이번 주 다른 요일·타임 계획 불러오기</label><div class="chipset">${sibs.map(y => `<button data-sib="${y.id}">${esc(shortWd(y.day))} ${esc(y.time || '공통')}${y.title ? ' · ' + esc(y.title) : ''}</button>`).join('')}</div>` : ''}
     <label style="${group ? 'display:none' : ''}">수업 요일 (모르면 비워 두세요)</label>
     <select id="p_d" style="${group ? 'display:none' : ''}"><option value="">요일 미정</option>${days.map(d => `<option value="${d}" ${x.day === d ? 'selected' : ''}>${fmtDay(d)}</option>`).join('')}</select>
     <label>제목 (선택, 예: 하체·코어)</label><input id="p_t" value="${esc(x.title || '')}">
@@ -815,7 +812,7 @@ async function editPlan(member, wk, ex, group, fixedDays, time, weekPlans, base)
   if ($('#p_last')) $('#p_last').onclick = () => { ta.value = (last.items || []).join('\n'); toast('지난 수업을 불러왔어요. 이번 주에 바꿀 것만 고치세요'); };
   if ($('#p_prev')) $('#p_prev').onclick = () => { ta.value = (prev.items || []).join('\n'); if (!$('#p_h').value) $('#p_h').value = prev.homework || ''; toast('지난 계획을 불러왔어요'); };
   document.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => add(b.dataset.mv));
-  document.querySelectorAll('[data-sib]').forEach(b => b.onclick = () => { const y = sibs.find(z => z.id === b.dataset.sib); ta.value = (y.items || []).join('\n'); if (!$('#p_t').value) $('#p_t').value = y.title || ''; toast(y.time + ' 계획을 불러왔어요. 이 타임에 맞게 고치세요'); });
+  document.querySelectorAll('[data-sib]').forEach(b => b.onclick = () => { const y = sibs.find(z => z.id === b.dataset.sib); ta.value = (y.items || []).join('\n'); if (!$('#p_t').value) $('#p_t').value = y.title || ''; toast(shortWd(y.day) + ' ' + (y.time || '') + ' 계획을 불러왔어요. 바꿀 것만 고치세요'); });
   $('#cn').onclick = closeDlg;
   if ($('#p_del')) $('#p_del').onclick = async () => { if (!confirm('이 계획을 지울까요?')) return; await fb.deleteDoc(fb.doc(db, 'plans', ex.id)); closeDlg(); renderPlan(); };
   $('#sv').onclick = async () => {
