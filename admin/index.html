@@ -213,6 +213,14 @@ ul.steps{padding-left:18px;margin-top:0}ul.steps li{margin:2px 0}
 .tt-legend{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px}
 .tt-legend i{display:inline-block;width:12px;height:12px;border-radius:4px;margin-right:-6px;vertical-align:-1px}
 .tt-legend i.g{background:var(--g2)}.tt-legend i.pt{background:var(--blue2)}.tt-legend i.x{background:var(--sunk)}.tt-legend i.due{box-shadow:inset 0 0 0 2px var(--amber)}
+.mem-opts{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end;margin:0 0 6px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.mem-opts .opt{display:flex;flex-direction:column;gap:6px;margin:0;font-size:12px;font-weight:800;color:var(--mut)}
+.mem-opts select{min-height:36px;padding:4px 10px;font-size:14px;width:auto;min-width:120px}
+.sorts{display:flex;flex-wrap:wrap;gap:4px}
+.sorts button{min-height:36px;padding:0 12px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);color:var(--mut);font-size:13px;font-weight:800;cursor:pointer}
+.sorts button.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.sorts i{font-style:normal;margin-left:4px}
+.chips .num{font-size:12px;opacity:.7;margin-left:2px}
 details.more-list{margin-top:18px}
 details.more-list summary{cursor:pointer;font-size:14px;font-weight:700;color:var(--mut);padding:8px 4px;list-style:none}
 details.more-list summary::before{content:"＋ "}
@@ -798,7 +806,7 @@ async function editClass(c){
   };
 }
 
-function passList(list, withBtn){
+function passList(list, withBtn, showReg){
   if (!list.length) return `<div class="empty">해당하는 회원이 없어요</div>`;
   const done = withBtn ? new Set(state.logs.filter(l => l.date === ckDay()).map(l => l.passId)) : null;
   return `<div class="list">${list.map(p => {
@@ -808,7 +816,7 @@ function passList(list, withBtn){
     return `<div class="item">
     <button class="who" data-open="${p.id}">
       <span class="nm">${esc(p.name)}${showTag ? `<span class="tag ${c}">${s}</span>` : ''}${bt ? `<span class="tag blue">${bt} 예약</span>` : ''}</span>
-      <span class="meta">${esc(p.cls)}${p.label ? ' · ' + esc(p.label) : ''}${p.lastDate ? ' · 최근 ' + esc(dayLbl(p.lastDate)) : ''}</span>
+      <span class="meta">${esc(p.label && p.cls && p.label.startsWith(p.cls) ? p.label : (p.cls || '') + (p.label ? ' · ' + p.label : ''))}${p.lastDate ? ' · 최근 ' + esc(dayLbl(p.lastDate)) : ''}${showReg ? ' · 등록 ' + (regDate(p) ? esc(dayLbl(regDate(p))) : '모름') : ''}</span>
     </button>
     ${isMoney(p) ? `<div class="cnt money${out ? ' out' : ''}"><b>${won(moneyLeft(p))}</b><small>잔액</small></div>` : `<div class="cnt${out ? ' out' : left(p) <= 3 ? ' low' : ''}"><b>${left(p)}</b><small>/ ${p.total}회</small></div>`}
     ${withBtn ? `<button class="btn${isDone ? ' ghost' : ''}" data-ck="${p.id}" ${out ? 'disabled' : ''}>${isDone ? '완료' : '출석'}</button>` : ''}
@@ -895,20 +903,66 @@ function renderCheckArea(){
 
 const memSeg = () => `<div class="seg" role="tablist"><button data-mv="list" class="${state.memView === 'list' ? 'on' : ''}">회원</button><button data-mv="log" class="${state.memView === 'log' ? 'on' : ''}">출석 기록</button></div>`;
 const bindMemSeg = () => app.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => { state.memView = b.dataset.mv; render(); });
+// 회원 목록 보기 설정 (이 기기에 기억)
+const MEM_DEF = { group: 'cls', sort: 'name', dir: 1, filter: 'active' };
+let memOpt = { ...MEM_DEF };
+try { memOpt = { ...MEM_DEF, ...JSON.parse(localStorage.getItem('mp_mem_opt') || '{}') }; } catch(e) {}
+const saveMemOpt = () => { try { localStorage.setItem('mp_mem_opt', JSON.stringify(memOpt)); } catch(e) {} };
+// 등록일: 앱에서 만든 이용권은 startDate, 가져온 이용권은 만든 시각
+const regDate = p => p.startDate || (p.createdAt?.toDate ? (d => { d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); })(p.createdAt.toDate()) : '');
+const remain = p => isMoney(p) ? moneyLeft(p) / Math.max(p.priceP || 1, 1) : left(p);
+const SORTS = { name: '이름', reg: '등록일', left: '남은 횟수', last: '최근 출석' };
+const GROUPS = { cls: '수업 종류', class: '반', status: '상태', none: '안 묶음' };
+function memSorted(list){
+  const k = memOpt.sort, d = memOpt.dir;
+  const key = { reg: regDate, last: p => p.lastDate || '', left: remain, name: p => p.name }[k];
+  return list.slice().sort((a, b) => {
+    const x = key(a), y = key(b);
+    if (x === '' && y !== '') return 1;  // 날짜 없는 건 늘 맨 뒤
+    if (y === '' && x !== '') return -1;
+    const c = typeof x === 'number' ? x - y : String(x).localeCompare(String(y), 'ko');
+    return c * d || a.name.localeCompare(b.name, 'ko');
+  });
+}
+function memGroups(list){
+  const g = memOpt.group;
+  if (g === 'none') return [['', list]];
+  const map = new Map(); const put = (k, p) => { if (!map.has(k)) map.set(k, []); map.get(k).push(p); };
+  if (g === 'cls') list.forEach(p => put(isMoney(p) ? '금액권' : p.cls || '종류 없음', p));
+  if (g === 'status') list.forEach(p => put(status(p)[0], p));
+  if (g === 'class') list.forEach(p => { const cs = actClasses().filter(c => (c.roster || []).some(r => r.name === p.name)); cs.length ? cs.forEach(c => put(`${c.name} · ${sessLbl(c)}`, p)) : put('반 없음', p); });
+  const order = { cls: ['1:1 PT', '2:1 PT', '1:1 PT,그룹 PT', '그룹 PT', '금액권'], status: ['재등록 안내', '충전 안내', '곧 소진', '연락 필요', '정상', '금액권', '만료'] }[g] || [];
+  return [...map.entries()].sort((a, b) => { const ia = order.indexOf(a[0]), ib = order.indexOf(b[0]); return a[0] === '반 없음' ? 1 : b[0] === '반 없음' ? -1 : (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a[0].localeCompare(b[0], 'ko'); });
+}
 function renderMembers(){
   if (state.memView === 'log') return renderLog();
   const act = state.passes.filter(p => !p.archived);
-  const need = act.filter(p => !['정상', '금액권'].includes(status(p)[0]));
-  const gone = state.passes.filter(p => p.archived);
-  const rank = p => isMoney(p) ? moneyLeft(p) / Math.max(p.priceP || 1, 1) : left(p);
+  const cnt = { active: act.length, need: act.filter(p => !['정상', '금액권'].includes(status(p)[0])).length, gone: state.passes.length - act.length };
   app.innerHTML = `${memSeg()}
-  <div class="sec-row"><h3 class="sec">챙겨야 할 회원 <span>${need.length}명</span></h3><button class="btn sm" id="add">+ 새 이용권</button></div>
-  ${need.length ? passList(need.sort((a, b) => rank(a) - rank(b)), false) : '<div class="empty">지금 챙길 회원이 없어요</div>'}
-  <h3 class="sec">전체 이용권 <span>${act.length}개</span></h3>
-  ${passList(act.sort((a, b) => a.name.localeCompare(b.name, 'ko')), false)}
-  ${gone.length ? `<details class="more-list"><summary>만료된 이용권 ${gone.length}개</summary>${passList(gone, false)}</details>` : ''}`;
+  <div class="toolbar"><input id="mq" type="search" placeholder="이름 검색" value="${esc(state.mq || '')}" autocomplete="off"><button class="btn" id="add">+ 새 이용권</button></div>
+  <div class="chips">${[['active', '이용 중'], ['need', '챙길 회원'], ['gone', '만료']].map(([k, t]) => `<button data-mf="${k}" class="${memOpt.filter === k ? 'on' : ''}">${t} <span class="num">${cnt[k]}</span></button>`).join('')}</div>
+  <div class="mem-opts">
+    <label class="opt"><span>묶어 보기</span><select id="mGroup">${Object.entries(GROUPS).map(([k, t]) => `<option value="${k}" ${memOpt.group === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+    <div class="opt"><span>정렬</span><div class="sorts">${Object.entries(SORTS).map(([k, t]) => `<button data-ms="${k}" class="${memOpt.sort === k ? 'on' : ''}" aria-pressed="${memOpt.sort === k}">${t}${memOpt.sort === k ? `<i>${memOpt.dir > 0 ? '↑' : '↓'}</i>` : ''}</button>`).join('')}</div></div>
+  </div>
+  <div id="memList"></div>`;
+  const draw = () => {
+    const q = (state.mq || '').trim();
+    let list = memOpt.filter === 'gone' ? state.passes.filter(p => p.archived) : memOpt.filter === 'need' ? act.filter(p => !['정상', '금액권'].includes(status(p)[0])) : act;
+    if (q) list = list.filter(p => p.name.includes(q));
+    const groups = memGroups(memSorted(list));
+    $('#memList').innerHTML = !list.length ? `<div class="empty">${q ? `'${esc(q)}' 회원이 없어요` : '해당하는 회원이 없어요'}</div>`
+      : groups.map(([t, ps]) => `${t ? `<h3 class="sec">${esc(t)} <span>${ps.length}</span></h3>` : ''}${passList(ps, false, memOpt.sort === 'reg')}`).join('');
+    bindList();
+  };
+  draw();
+  $('#mq').oninput = e => { state.mq = e.target.value; draw(); };
   $('#add').onclick = () => editPass(null);
-  bindList(); bindMemSeg();
+  app.querySelectorAll('[data-mf]').forEach(b => b.onclick = () => { memOpt.filter = b.dataset.mf; saveMemOpt(); refresh(); });
+  $('#mGroup').onchange = e => { memOpt.group = e.target.value; saveMemOpt(); draw(); };
+  // 같은 정렬을 다시 누르면 오름차순 ↔ 내림차순
+  app.querySelectorAll('[data-ms]').forEach(b => b.onclick = () => { const k = b.dataset.ms; memOpt.dir = memOpt.sort === k ? -memOpt.dir : (k === 'name' || k === 'left' ? 1 : -1); memOpt.sort = k; saveMemOpt(); refresh(); });
+  bindMemSeg();
 }
 
 const VIA = { kiosk: '태블릿', qr: 'QR', form: '구글폼' };
