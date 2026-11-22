@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ko"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow"><title>내 운동 기록 · 무브앤플레이</title>
+<meta name="theme-color" content="#f5f7f1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gothic+A1:wght@500;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 회원용 화면: 휴대폰 한 손으로 위에서 아래로. 남은 횟수 → 다음 수업 → 최근 출석 → 숙제·목표 */
+:root{
+  --bg:#f5f7f1; --surface:#ffffff; --sunk:#edf1e7; --ink:#1b2316; --muted:#5d6955; --line:#dbe3cf;
+  --green:#6eb92b; --green-deep:#2f5a12; --green-soft:#e8f3dc; --on-green:#10200a; --chart:#4e9a1f;
+  --amber:#8a5300; --amber-soft:#fcf0d9; --danger:#b3261e;
+  --f-display:"Black Han Sans","Gothic A1","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-body:"Gothic A1","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11160e; --surface:#1a2116; --sunk:#141a10; --ink:#e8eee0; --muted:#a3ae99; --line:#2e3828;
+  --green:#86cf45; --green-deep:#b6e58c; --green-soft:#223218; --on-green:#0e1a08; --chart:#5ea826;
+  --amber:#f0b45a; --amber-soft:#382912; --danger:#ff8f86; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11160e; --surface:#1a2116; --sunk:#141a10; --ink:#e8eee0; --muted:#a3ae99; --line:#2e3828;
+  --green:#86cf45; --green-deep:#b6e58c; --green-soft:#223218; --on-green:#0e1a08; --chart:#5ea826;
+  --amber:#f0b45a; --amber-soft:#382912; --danger:#ff8f86; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;word-break:keep-all}
+main{max-width:480px;margin:0 auto;padding:max(20px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(32px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.brand{display:flex;align-items:center;gap:8px;margin-bottom:22px}
+.brand img{width:22px;height:auto}
+.brand b{font-family:var(--f-display);font-weight:400;font-size:18px;letter-spacing:.02em}
+.brand span{font-size:13px;color:var(--muted);font-weight:700}
+h1{font-family:var(--f-display);font-weight:400;font-size:34px;line-height:1.15;margin:0;letter-spacing:.01em}
+.lead{color:var(--muted);margin:6px 0 22px}
+h2{font-size:14px;font-weight:800;color:var(--muted);margin:26px 2px 10px;display:flex;align-items:baseline;gap:8px}
+h2 span{font:500 13px var(--f-mono)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px}
+.card+.card{margin-top:10px}
+.pass .lbl{font-weight:800}
+.pass .lbl small{display:block;font-size:13px;color:var(--muted);font-weight:500}
+.big{display:flex;align-items:baseline;gap:6px;margin:10px 0 12px}
+.big b{font:600 64px/1 var(--f-mono);letter-spacing:-.04em}
+.big span{font-size:17px;font-weight:800}
+.big.money b{font-size:40px}
+.meter{height:10px;border-radius:5px;background:var(--sunk);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--chart);border-radius:5px 0 0 5px}
+.meter-l{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-top:6px}
+.warn{margin-top:12px;background:var(--amber-soft);color:var(--amber);border-radius:12px;padding:10px 12px;font-size:14px;font-weight:800}
+.list{background:var(--surface);border:1px solid var(--line);border-radius:20px;overflow:hidden}
+.row{display:flex;align-items:center;gap:14px;padding:14px 18px}
+.row+.row{border-top:1px solid var(--line)}
+.date{flex:0 0 auto;width:54px;text-align:center;border-radius:12px;background:var(--green-soft);color:var(--green-deep);padding:6px 0;line-height:1.15}
+.date b{display:block;font:600 20px var(--f-mono)}
+.date small{font-size:12px;font-weight:800}
+.row .t{font-weight:800}
+.row .t small{display:block;font-size:13px;color:var(--muted);font-weight:500}
+.empty{color:var(--muted);font-size:15px;padding:16px 18px}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.cal .h{font-size:11px;color:var(--muted);text-align:center;font-weight:700}
+.cal i{aspect-ratio:1;max-width:100%;border-radius:7px;background:var(--sunk);display:block}
+.cal i.on{background:var(--chart)}
+.cal i.today{box-shadow:inset 0 0 0 2px var(--ink)}
+.cal i.fut{background:transparent;box-shadow:inset 0 0 0 1px var(--line)}
+.cal-f{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:13px;color:var(--muted)}
+.cal-f .k{display:inline-flex;align-items:center;gap:6px}.cal-f .k i{width:12px;height:12px;border-radius:4px;background:var(--chart);display:inline-block}
+.hw{background:var(--amber-soft);border-color:transparent}
+.hw .k{font-size:13px;font-weight:800;color:var(--amber)}
+.hw p,.goal p{margin:4px 0 0;font-size:17px;font-weight:800;line-height:1.5}
+.goal .k{font-size:13px;font-weight:800;color:var(--muted)}
+.foot{margin-top:28px;display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center;font-size:13px;color:var(--muted)}
+.foot a.btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 22px;border-radius:999px;background:var(--green);color:var(--on-green);font-weight:800;text-decoration:none;font-size:16px}
+.msg{text-align:center;padding:60px 8px}
+.msg h1{font-size:28px;margin-bottom:10px}
+.msg p{color:var(--muted)}
+.sk{background:var(--sunk);border-radius:12px;animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.5}}
+@media (prefers-reduced-motion:reduce){.sk{animation:none}}
+</style></head><body><main id="m">
+  <div class="brand"><img id="logo" src="data:image/png;base64,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" alt=""><b>MOVE&amp;PLAY</b><span>순천점</span></div>
+  <div class="sk" style="height:40px;width:60%"></div><div class="sk" style="height:200px;margin-top:24px"></div><div class="sk" style="height:140px;margin-top:16px"></div>
+</main>
+<script>
+// 회원 정보를 알려 주는 Apps Script 웹 앱 주소 (apps-script/member-view.gs 배포 후 넣기)
+const API = '';
+const $ = s => document.querySelector(s);
+const m = $('#m');
+const t = new URLSearchParams(location.search).get('t') || '';
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const WD = ['일', '월', '화', '수', '목', '금', '토'];
+const today = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+const addDays = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const wdOf = s => new Date(s + 'T00:00:00Z').getUTCDay();
+const won = n => (n || 0).toLocaleString('ko-KR') + '원';
+const brand = m.querySelector('.brand').outerHTML;
+
+function msg(title, text){ m.innerHTML = `${brand}<div class="msg"><h1>${title}</h1><p>${text}</p></div>${foot()}`; }
+function foot(){ return `<div class="foot"><a class="btn" href="http://pf.kakao.com/_DgxnWX/chat" target="_blank" rel="noopener">카톡으로 문의하기</a><span>전화 <span class="num">010-4608-0119</span> · 전남 순천시 해룡면 신대로 8, 4층</span><span>이 화면은 회원님 전용 링크예요. 다른 사람과 나누지 마세요.</span></div>`; }
+
+function passCard(p){
+  if (p.kind === '금액권') {
+    const left = (p.balance || 0) - (p.spent || 0), low = left < (p.priceP || 0) * 2;
+    return `<div class="card pass"><div class="lbl">${esc(p.label || '금액권')}<small>개인 PT −${won(p.priceP)} · 그룹 수업 −${won(p.priceG)}</small></div>
+      <div class="big money"><b class="num">${left.toLocaleString('ko-KR')}</b><span>원 남았어요</span></div>
+      <div class="meter" role="img" aria-label="충전 ${won(p.balance)} 중 ${won(p.spent)} 사용"><i style="width:${Math.min(100, (p.spent || 0) / Math.max(p.balance || 1, 1) * 100)}%"></i></div>
+      <div class="meter-l"><span>사용 ${won(p.spent)}</span><span>충전 ${won(p.balance)}</span></div>
+      ${low ? '<div class="warn">잔액이 얼마 안 남았어요. 충전은 선생님께 문의해 주세요</div>' : ''}</div>`;
+  }
+  const total = p.total || 0, left = p.left ?? total, used = total - left;
+  return `<div class="card pass"><div class="lbl">${esc(p.label || p.cls || '이용권')}<small>${esc(p.cls || '')}</small></div>
+    <div class="big"><b class="num">${String(Math.max(left, 0)).padStart(2, '0')}</b><span>회 남았어요</span></div>
+    <div class="meter" role="img" aria-label="${total}회 중 ${used}회 사용"><i style="width:${total ? Math.min(100, used / total * 100) : 0}%"></i></div>
+    <div class="meter-l"><span>사용 <span class="num">${used}</span>회</span><span>등록 <span class="num">${total}</span>회</span></div>
+    ${left <= 3 ? `<div class="warn">${left <= 0 ? '이용권을 다 썼어요' : '얼마 안 남았어요'}. 재등록은 선생님께 문의해 주세요</div>` : ''}</div>`;
+}
+function calendar(days){
+  // 최근 8주: 월요일 시작, 한 줄이 한 주
+  const set = new Set(days), td = today();
+  let start = addDays(td, -((wdOf(td) + 6) % 7) - 49);
+  const cells = [];
+  for (let i = 0; i < 56; i++) { const d = addDays(start, i); cells.push(`<i class="${set.has(d) ? 'on' : ''}${d === td ? ' today' : ''}${d > td ? ' fut' : ''}" title="${+d.slice(5, 7)}/${+d.slice(8)}${set.has(d) ? ' 출석' : ''}"></i>`); }
+  const n4 = days.filter(d => d > addDays(td, -28)).length;
+  return `<div class="card"><div class="cal">${['월', '화', '수', '목', '금', '토', '일'].map(w => `<span class="h">${w}</span>`).join('')}${cells.join('')}</div>
+    <div class="cal-f"><span class="k"><i></i>출석한 날</span><span>최근 4주 <b class="num">${n4}</b>회</span></div></div>`;
+}
+function render(d){
+  const next = d.next || [], days = d.days || [];
+  m.innerHTML = `${brand}
+  <h1>${esc(d.name)}님</h1><p class="lead">${days.length ? `마지막 출석 ${+days[0].slice(5, 7)}월 ${+days[0].slice(8)}일 · 오늘도 천천히, 같이 움직여요` : '오늘도 천천히, 같이 움직여요'}</p>
+  ${(d.passes || []).map(passCard).join('') || '<div class="card">사용 중인 이용권이 없어요</div>'}
+  <h2>다음 수업 <span>${next.length}</span></h2>
+  <div class="list">${next.map(b => `<div class="row"><div class="date"><b>${+b.date.slice(8)}</b><small>${+b.date.slice(5, 7)}월 ${WD[wdOf(b.date)]}</small></div><div class="t"><span class="num">${esc(b.time)}</span> ${esc(b.slot || '개인 PT')}<small>${b.date === today() ? '오늘' : b.date === addDays(today(), 1) ? '내일' : `${Math.round((new Date(b.date) - new Date(today())) / 86400000)}일 뒤`}</small></div></div>`).join('') || '<div class="empty">예정된 수업이 없어요. 예약은 선생님께 말씀해 주세요.</div>'}</div>
+  <h2>최근 출석 <span>8주</span></h2>
+  ${calendar(days)}
+  ${d.homework ? `<h2>숙제</h2><div class="card hw"><span class="k">${d.homework.date ? `${+d.homework.date.slice(5, 7)}월 ${+d.homework.date.slice(8)}일 수업에서` : '지난 수업에서'}</span><p>${esc(d.homework.text)}</p></div>` : ''}
+  ${d.goal ? `<h2>목표</h2><div class="card goal"><span class="k">선생님과 같이 정한 목표</span><p>${esc(d.goal)}</p></div>` : ''}
+  ${foot()}`;
+}
+async function load(){
+  if (!t) return msg('링크를 다시 확인해 주세요', '센터에서 받은 회원 전용 링크로 열어 주세요.');
+  if (!API) return msg('준비 중이에요', '센터에서 설정을 마치면 이 링크로 남은 횟수와 다음 수업을 볼 수 있어요.');
+  let r;
+  try { r = await (await fetch(`${API}?t=${encodeURIComponent(t)}`)).json(); }
+  catch(e) { return msg('불러오지 못했어요', '인터넷 연결을 확인하고 새로고침해 주세요.'); }
+  if (!r.ok) return msg(r.code === 'link' ? '링크가 바뀌었어요' : '불러오지 못했어요', r.code === 'link' ? '센터에 새 링크를 요청해 주세요.' : esc(r.msg || '잠시 후 다시 열어 주세요.'));
+  render(r);
+}
+load();
+</script></body></html>

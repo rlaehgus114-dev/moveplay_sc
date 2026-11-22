@@ -14,6 +14,7 @@
   --bg:#f3f5ef; --surface:#ffffff; --sunk:#eef2e8; --ink:#1b2316; --mut:#5f6b57; --line:#e2e8da;
   --brand:#6eb92b; --on-brand:#10200a; --g:#2f6b12; --g2:#e6f2d9;
   --red:#b3261e; --red2:#fbe9e6; --amber:#8a5300; --amber2:#fcf0d9; --blue:#2f56b0; --blue2:#e8eefb;
+  --chart:#4e9a1f; --chart-hi:#2f6b12;
   --scrim:rgba(10,16,8,.45); --shadow:0 12px 32px -16px rgba(27,35,22,.35);
   --f-display:"Black Han Sans","Gothic A1","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   --f-body:"Gothic A1","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
@@ -25,11 +26,13 @@
   --bg:#11160e; --surface:#192015; --sunk:#141a10; --ink:#e8eee0; --mut:#a3ae99; --line:#2b3525;
   --brand:#86cf45; --on-brand:#0e1a08; --g:#b6e58c; --g2:#223218;
   --red:#ff8f86; --red2:#3a1d1a; --amber:#f0b45a; --amber2:#382912; --blue:#a9c0ff; --blue2:#1c2540;
+  --chart:#5ea826; --chart-hi:#b6e58c;
   --scrim:rgba(0,0,0,.6); --shadow:0 12px 32px -16px rgba(0,0,0,.8); color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#11160e; --surface:#192015; --sunk:#141a10; --ink:#e8eee0; --mut:#a3ae99; --line:#2b3525;
   --brand:#86cf45; --on-brand:#0e1a08; --g:#b6e58c; --g2:#223218;
   --red:#ff8f86; --red2:#3a1d1a; --amber:#f0b45a; --amber2:#382912; --blue:#a9c0ff; --blue2:#1c2540;
+  --chart:#5ea826; --chart-hi:#b6e58c;
   --scrim:rgba(0,0,0,.6); --shadow:0 12px 32px -16px rgba(0,0,0,.8); color-scheme:dark}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;font-family:var(--f-body);background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;word-break:keep-all}
@@ -50,7 +53,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 
 /* 아래 탭 (휴대폰) */
-#nav{position:fixed;left:0;right:0;bottom:0;z-index:8;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:4px max(4px,env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) max(4px,env(safe-area-inset-left,0px))}
+#nav{position:fixed;left:0;right:0;bottom:0;z-index:8;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:4px max(4px,env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) max(4px,env(safe-area-inset-left,0px))}
 #nav button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0 4px;font-size:11px;font-weight:700;color:var(--mut);cursor:pointer;border-radius:12px;position:relative}
 #nav button.on{color:var(--g)}
 #nav button.on svg{stroke-width:2.4}
@@ -221,6 +224,45 @@ ul.steps{padding-left:18px;margin-top:0}ul.steps li{margin:2px 0}
 .sorts button.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 .sorts i{font-style:normal;margin-left:4px}
 .chips .num{font-size:12px;opacity:.7;margin-left:2px}
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:6px}
+@media (min-width:720px){.tiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tile>span{font-size:13px;font-weight:800;color:var(--mut)}
+.tile b{font:600 30px/1.15 var(--f-mono);letter-spacing:-.02em}
+.tile b em{font:700 14px var(--f-body);color:var(--mut);margin-left:2px}
+.tile small{font-size:12px;color:var(--mut)}
+.tile small.up{color:var(--g);font-weight:800}.tile small.down{color:var(--red);font-weight:800}
+.card.chart{padding:16px 12px 8px 8px}
+.cc{position:relative;height:150px;margin-left:30px}
+.cc-grid{position:absolute;inset:0 0 20px 0}
+.cc-grid div{position:absolute;left:0;right:0;border-top:1px solid var(--line)}
+.cc-grid span{position:absolute;right:calc(100% + 6px);top:-8px;font-size:11px;color:var(--mut)}
+.cc-cols{position:absolute;inset:0 0 20px 0;display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:2px;align-items:end}
+.cc-col{height:100%;display:flex;align-items:flex-end;justify-content:center;cursor:default;border-radius:4px;outline-offset:0}
+.cc-col:hover,.cc-col:focus{background:var(--sunk)}
+.cc-col i{display:block;width:100%;max-width:24px;background:var(--chart);border-radius:4px 4px 0 0;min-height:0}
+.cc-col.mark i{background:var(--chart-hi)}
+.cc-x{position:absolute;left:0;right:0;bottom:0;height:16px;display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:2px}
+.cc-x span{font-size:11px;color:var(--mut);text-align:center;white-space:nowrap}
+details.tbl{margin-top:8px}
+details.tbl summary{font-size:12px;font-weight:700;color:var(--mut);cursor:pointer;padding:4px}
+.tbl-w{max-height:200px;overflow:auto}
+.tbl-w table{width:100%;border-collapse:collapse;font-size:13px}
+.tbl-w th,.tbl-w td{padding:5px 8px;border-top:1px solid var(--line);text-align:left;font-weight:500}
+.tbl-w td{text-align:right}
+.bl{display:grid;gap:12px}
+.bl-r{display:grid;grid-template-columns:minmax(0,9em) minmax(0,1fr) auto;gap:10px;align-items:center}
+.bl-l{font-size:13px;font-weight:700;line-height:1.3}
+.bl-t{height:12px;background:var(--sunk);border-radius:4px;overflow:hidden}
+.bl-t i{display:block;height:100%;background:var(--chart);border-radius:0 4px 4px 0}
+.bl-v{font-size:14px;font-weight:600;min-width:58px;text-align:right}
+.bl-v small{display:block;font-size:11px;color:var(--mut);font-weight:500}
+.two{display:grid;gap:0 16px}
+@media (min-width:720px){.two{grid-template-columns:1fr 1fr}}
+.rank{width:24px;height:24px;border-radius:8px;background:var(--sunk);display:grid;place-items:center;font-size:13px;font-weight:600}
+#tip{position:absolute;z-index:30;background:var(--ink);color:var(--bg);font-size:12px;font-weight:700;padding:6px 10px;border-radius:8px;pointer-events:none;opacity:0;transition:opacity .12s;white-space:nowrap}
+#tip.on{opacity:1}
+.linkbox{background:var(--sunk);border-radius:12px;padding:12px;font-size:13px;word-break:break-all;user-select:all}
 details.more-list{margin-top:18px}
 details.more-list summary{cursor:pointer;font-size:14px;font-weight:700;color:var(--mut);padding:8px 4px;list-style:none}
 details.more-list summary::before{content:"＋ "}
@@ -288,6 +330,7 @@ label.pick+label.pick{border-top:1px solid var(--line)}
   <button data-t="today" class="on"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-6.5 8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/></svg><span>오늘</span></button>
   <button data-t="sched"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M8 14h2M14 14h2M8 17h2"/></svg><span>시간표</span></button>
   <button data-t="members"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8.5" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M15.5 5.2a3.5 3.5 0 0 1 0 6.6M18 14.8c1.8.7 3 2.4 3.5 5.2"/></svg><span>회원</span></button>
+  <button data-t="stats"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M7 16v-5M12 16V7M17 16v-8"/></svg><span>통계</span></button>
   <button data-t="more"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>설정</span></button>
 </nav>
 <main id="app"><div class="center hint">불러오는 중…</div></main>
@@ -368,22 +411,20 @@ function loginScreen(){
 }
 
 async function loadAll(){
-  const cs = await fb.getDocs(fb.collection(db, 'classes'));
-  state.classes = cs.docs.map(d => ({ id: d.id, ...d.data() }));
   const ps = await fb.getDocs(fb.collection(db, 'passes'));
   state.passes = ps.docs.map(d => ({ id: d.id, ...d.data() }));
-  for (const p of state.passes) {
-    if (isMoney(p) && p.balance == null && MONEY_INIT[p.name]) {
-      await fb.updateDoc(fb.doc(db, 'passes', p.id), MONEY_INIT[p.name]); Object.assign(p, MONEY_INIT[p.name]);
-    }
-  }
-  const since = new Date(); since.setDate(since.getDate() - 120);
-  const ls = await fb.getDocs(fb.query(fb.collection(db, 'attendance'), fb.where('date', '>=', since.toISOString().slice(0, 10)), fb.orderBy('date', 'desc'), fb.limit(500)));
+  const ls = await fb.getDocs(fb.query(fb.collection(db, 'attendance'), fb.where('date', '>=', addDays(today(), -120)), fb.orderBy('date', 'desc'), fb.limit(500)));
   state.logs = ls.docs.map(d => ({ id: d.id, ...d.data() }));
   const bs = await fb.getDocs(fb.query(fb.collection(db, 'bookings'), fb.where('date', '>=', addDays(today(), -7))));
   state.books = bs.docs.map(d => ({ id: d.id, ...d.data() }));
-  if (!state.classes.length) await seedClasses();
-  await syncAuto();
+  // 반(classes)은 새 컬렉션이라 보안 규칙에 없으면 막혀요. 그래도 출석·회원 기능은 그대로 쓰게 따로 처리
+  try {
+    const cs = await fb.getDocs(fb.collection(db, 'classes'));
+    state.classes = cs.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (!state.classes.length) await seedClasses();
+    await syncAuto();
+    state.classErr = '';
+  } catch(e) { console.error(e); state.classErr = e.code || e.message || '알 수 없는 오류'; }
   state.loadedAt = Date.now();
 }
 // 다른 기기(센터 태블릿)에서 찍힌 출석도 보이도록, 앱으로 돌아오면 새로 불러오기
@@ -399,8 +440,6 @@ const left = p => (p.total || 0) - used(p);
 const isMoney = p => p.kind === '금액권';
 const moneyLeft = p => (p.balance || 0) - (p.spent || 0);
 const won = n => (n || 0).toLocaleString('ko-KR') + '원';
-// 금액권 처음 설정값 (출석관리 시트 '금액권' 탭 2026-10-31 기준)
-const MONEY_INIT = { '한가려': { balance: 465000, priceP: 60000, priceG: 25000, spent: 0 } };
 function status(p){
   if (p.archived) return ['만료', 'gray'];
   if (isMoney(p)) {
@@ -426,9 +465,9 @@ document.querySelectorAll('#nav button').forEach(b => b.onclick = async () => {
   render();
 });
 
-const TITLES = { today: '오늘', sched: '시간표', members: '회원', more: '설정' };
+const TITLES = { today: '오늘', sched: '시간표', members: '회원', stats: '통계', more: '설정' };
 // 탭을 바꿀 땐 맨 위로, 저장 뒤 다시 그릴 땐(refresh) 보던 자리 그대로
-function refresh(){ $('#pgT').textContent = TITLES[state.tab]; document.title = TITLES[state.tab] + ' · 무플 관리자'; return ({ today: renderToday, sched: renderSched, members: renderMembers, more: renderMore })[state.tab](); }
+function refresh(){ $('#pgT').textContent = TITLES[state.tab]; document.title = TITLES[state.tab] + ' · 무플 관리자'; return ({ today: renderToday, sched: renderSched, members: renderMembers, stats: renderStats, more: renderMore })[state.tab](); }
 function render(){ refresh(); window.scrollTo(0, 0); }
 
 /* ---------- 반(정기 수업)과 자동 예약 ----------
@@ -551,6 +590,7 @@ function sessItem(d, s, plans, glogs){
   const cap = s.c?.cap;
   return `<div class="item"><button class="who" data-sess="${d}|${esc(s.key)}"><span class="nm"><span class="num tm">${s.time}</span>${esc(s.c ? s.c.name : '개인 PT')}${tag}</span><span class="meta">${who || '명단 없음'}</span></button><div class="cnt${cap && s.bs.length > cap ? ' out' : ''}"><b>${s.bs.length}</b><small>${cap ? '/ ' + cap + '명' : '명'}</small></div></div>`;
 }
+const classErrHtml = () => state.classErr ? `<div class="card attn"><div class="attn-t">반·자동 예약을 불러오지 못했어요</div><p class="hint" style="margin-bottom:0">Firebase 보안 규칙에 <b class="t-ink">classes</b> 컬렉션 허용이 필요해요(납품 안내 문서 참고). 출석·회원·기록 기능은 그대로 쓸 수 있어요. <span class="t-mut">(${esc(state.classErr)})</span></p></div>` : '';
 async function renderSched(){
   if (state.schedView === 'classes') return renderClasses();
   const wk = state.week || (state.week = weekStart(today()));
@@ -573,7 +613,7 @@ async function renderSched(){
   const grid = times.length ? `<div class="tt-wrap"><table class="tt"><thead><tr><th class="tm"></th>${days.map(d => `<th class="${d === today() ? 'now' : ''}"><span>${WD[wdOf(d)]}</span><b class="num">${+d.slice(8)}</b></th>`).join('')}</tr></thead>
     <tbody>${times.map(t => `<tr><th class="tm num">${t}</th>${days.map(d => `<td class="${d === today() ? 'now' : ''}">${byDay[d].filter(x => x.time === t).map(x => ev(d, x)).join('')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
     <p class="hint tt-legend"><i class="g"></i>그룹 수업 <i class="pt"></i>개인 PT 반 <i class="x"></i>따로 넣은 예약 <i class="due"></i>기록 전</p>` : '';
-  app.innerHTML = `${segHtml()}
+  app.innerHTML = `${segHtml()}${classErrHtml()}
   <div class="toolbar"><button class="btn ghost icon" id="pp" aria-label="지난주">‹</button><div class="wk-t">${fmtDay(wk)} 주${wk === weekStart(today()) ? ' <span class="tag">이번 주</span>' : ''}</div><button class="btn ghost icon" id="pn" aria-label="다음 주">›</button></div>
   <div class="view-row"><span class="grow hint" style="margin:0">칸을 누르면 명단·계획·기록을 봐요</span><div class="mini-seg"><button data-sm="grid" class="${state.schedMode !== 'list' ? 'on' : ''}">표</button><button data-sm="list" class="${state.schedMode === 'list' ? 'on' : ''}">목록</button></div></div>
   ${(state.schedMode === 'list' ? dayHtml : grid) || '<div class="empty">이번 주는 수업이 없어요. 반 관리에서 시간표를 만들어 주세요.</div>'}
@@ -730,7 +770,7 @@ function renderClasses(){
     </div>`;
   };
   const g = cs.filter(c => c.kind !== 'pt'), t = cs.filter(c => c.kind === 'pt');
-  app.innerHTML = `${segHtml()}
+  app.innerHTML = `${segHtml()}${classErrHtml()}
   <div class="sec-row"><h3 class="sec">반 <span>${cs.length}개</span></h3><button class="btn sm" id="addC">+ 새 반</button></div>
   <p class="hint">반에 회원을 한 번 넣어 두면 매주 예약이 자동으로 들어가요(${HORIZON}일 앞까지). 개인 PT도 정해진 시간이 있으면 1인 반으로 만들어 두세요.</p>
   <h3 class="sec">그룹 수업 <span>${g.length}</span></h3>${g.map(card).join('') || '<div class="empty">그룹 수업 반이 없어요</div>'}
@@ -978,6 +1018,86 @@ function renderLog(){
   app.querySelectorAll('[data-undo]').forEach(b => b.onclick = () => undo(b.dataset.undo));
 }
 
+/* ---------- 통계 ---------- */
+const monthEnd = m => { const [y, mo] = m.split('-').map(Number); return `${m}-${String(new Date(Date.UTC(y, mo, 0)).getUTCDate()).padStart(2, '0')}`; };
+const monthAdd = (m, n) => { const [y, mo] = m.split('-').map(Number); const d = new Date(Date.UTC(y, mo - 1 + n, 1)); return d.toISOString().slice(0, 7); };
+const niceMax = v => { if (v <= 4) return 4; const p = Math.pow(10, Math.floor(Math.log10(v))); for (const k of [1, 2, 2.5, 5, 10]) if (k * p >= v) return k * p; return 10 * p; };
+// 막대: 한 계열이라 범례 없이 제목이 이름. 칸에 올리면 툴팁, 아래 '표로 보기'
+function colChart(rows, { label, unit = '회', mark } = {}){
+  const max = niceMax(Math.max(1, ...rows.map(r => r.v))), ticks = [0, max / 2, max];
+  return `<div class="cc" role="img" aria-label="${esc(label)}">
+    <div class="cc-grid">${ticks.map(t => `<div style="bottom:${t / max * 100}%"><span class="num">${t % 1 ? t.toFixed(1) : t}</span></div>`).join('')}</div>
+    <div class="cc-cols" style="--n:${rows.length}">${rows.map(r => `<div class="cc-col${r.k === mark ? ' mark' : ''}" tabindex="0" data-tip="${esc(r.tip || `${r.l} · ${r.v}${unit}`)}"><i style="height:${r.v / max * 100}%"></i></div>`).join('')}</div>
+    <div class="cc-x" style="--n:${rows.length}">${rows.map(r => `<span>${r.x || ''}</span>`).join('')}</div>
+  </div>
+  <details class="tbl"><summary>표로 보기</summary><div class="tbl-w"><table><tbody>${rows.map(r => `<tr><th>${esc(r.l)}</th><td class="num">${r.v}${unit}</td></tr>`).join('')}</tbody></table></div></details>`;
+}
+// 가로 막대: 값은 막대 끝에 글자로
+function barList(rows, unit = '%'){
+  return `<div class="bl">${rows.map(r => `<div class="bl-r"><span class="bl-l">${esc(r.l)}</span><span class="bl-t"><i style="width:${Math.max(r.v, 0.5)}%"></i></span><span class="bl-v num">${r.v}${unit}${r.sub ? `<small>${esc(r.sub)}</small>` : ''}</span></div>`).join('')}</div>`;
+}
+function bindTips(){
+  let tip = $('#tip'); if (!tip) { tip = document.createElement('div'); tip.id = 'tip'; tip.setAttribute('role', 'tooltip'); document.body.appendChild(tip); }
+  const show = el => { const r = el.getBoundingClientRect(); tip.textContent = el.dataset.tip; tip.classList.add('on'); const w = tip.offsetWidth; tip.style.left = Math.min(innerWidth - w - 8, Math.max(8, r.left + r.width / 2 - w / 2)) + 'px'; tip.style.top = (r.top - tip.offsetHeight - 8 + scrollY) + 'px'; };
+  const hide = () => tip.classList.remove('on');
+  app.querySelectorAll('[data-tip]').forEach(el => { el.onmouseenter = el.onfocus = () => show(el); el.onmouseleave = el.onblur = hide; el.onclick = () => show(el); });
+}
+async function renderStats(){
+  const m = state.statMonth || (state.statMonth = today().slice(0, 7));
+  const first = `${m}-01`, last = monthEnd(m), pm = monthAdd(m, -1), pFirst = `${pm}-01`, upto = last < today() ? last : today();
+  const [aq, bq] = await Promise.all([
+    fb.getDocs(fb.query(fb.collection(db, 'attendance'), fb.where('date', '>=', pFirst), fb.where('date', '<=', last))),
+    fb.getDocs(fb.query(fb.collection(db, 'bookings'), fb.where('date', '>=', first), fb.where('date', '<=', upto)))]);
+  if (state.tab !== 'stats' || state.statMonth !== m) return;
+  const byId = Object.fromEntries(state.passes.map(p => [p.id, p]));
+  const all = aq.docs.map(d => d.data()), cur = all.filter(a => a.date >= first), prev = all.filter(a => a.date < first);
+  const nm = a => byId[a.passId]?.name || a.name;
+  const people = new Set(cur.map(nm)), pPeople = new Set(prev.map(nm));
+  const regIn = (p, a, b) => { const r = regDate(p); return r >= a && r <= b; };
+  const earlier = p => state.passes.some(q => q.name === p.name && q.id !== p.id && (regDate(q) || '0') < regDate(p));
+  const news = state.passes.filter(p => regIn(p, first, last)), renew = news.filter(earlier), fresh = news.filter(p => !earlier(p));
+  const pNews = state.passes.filter(p => regIn(p, pFirst, `${pm}-31`));
+  const money = cur.reduce((s, a) => s + (a.amount || 0), 0), pMoney = prev.reduce((s, a) => s + (a.amount || 0), 0);
+  const delta = (a, b, fmt = x => x) => b === 0 && a === 0 ? '' : `<small class="${a >= b ? 'up' : 'down'}">${a >= b ? '▲' : '▼'} ${fmt(Math.abs(a - b))} 지난달 대비</small>`;
+  // 일별 출석
+  const days = []; for (let d = first; d <= last; d = addDays(d, 1)) days.push(d);
+  const perDay = days.map(d => ({ k: d, l: fmtDay(d), x: ['01', '05', '10', '15', '20', '25'].includes(d.slice(8)) || d === last ? String(+d.slice(8)) : '', v: cur.filter(a => a.date === d).length }));
+  // 요일별
+  const wdRows = [1, 2, 3, 4, 5, 6, 0].map(w => ({ k: w, l: WD[w] + '요일', x: WD[w], v: cur.filter(a => wdOf(a.date) === w).length }));
+  // 반별 참석률: 지난 수업 예약 중 그날 출석한 비율
+  const att = new Set(cur.map(a => a.date + '|' + nm(a)));
+  const books = bq.docs.map(d => d.data()).filter(b => b.date < today() || b.date === today());
+  const clsRows = actClasses().map(c => {
+    const bs = books.filter(b => b.classId ? b.classId === c.id : (b.slot || '') === c.name && (c.sessions || []).some(s => s.wd === wdOf(b.date) && s.time === b.time));
+    const ok = bs.filter(b => att.has(b.date + '|' + b.name)).length;
+    return { l: `${c.name} ${sessLbl(c)}`, n: bs.length, ok };
+  }).filter(r => r.n).map(r => ({ l: r.l, v: Math.round(r.ok / r.n * 100), sub: `${r.ok}/${r.n}` })).sort((a, b) => b.v - a.v);
+  // 많이 온 회원
+  const cnt = {}; cur.forEach(a => { const n = nm(a); cnt[n] = (cnt[n] || 0) + 1; });
+  const top = Object.entries(cnt).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const ptN = cur.filter(a => a.kind ? a.kind === '개인' : isPT(byId[a.passId] || {})).length;
+  app.innerHTML = `
+  <div class="toolbar"><button class="btn ghost icon" id="mp" aria-label="지난달">‹</button><div class="wk-t">${+m.slice(0, 4)}년 ${+m.slice(5)}월${m === today().slice(0, 7) ? ' <span class="tag">이번 달</span>' : ''}</div><button class="btn ghost icon" id="mn" aria-label="다음 달" ${m >= today().slice(0, 7) ? 'disabled' : ''}>›</button></div>
+  <div class="tiles">
+    <div class="tile"><span>출석</span><b class="num">${cur.length}<em>회</em></b>${delta(cur.length, prev.length, x => x + '회')}<small>개인 PT ${ptN} · 그룹 ${cur.length - ptN}</small></div>
+    <div class="tile"><span>출석한 회원</span><b class="num">${people.size}<em>명</em></b>${delta(people.size, pPeople.size, x => x + '명')}</div>
+    <div class="tile"><span>등록</span><b class="num">${news.length}<em>건</em></b>${delta(news.length, pNews.length, x => x + '건')}<small>새 등록 ${fresh.length} · 재등록 ${renew.length}</small></div>
+    <div class="tile"><span>금액권 차감</span><b class="num">${money ? Math.round(money / 10000) : 0}<em>만원</em></b>${delta(money, pMoney, x => Math.round(x / 10000) + '만원')}</div>
+  </div>
+  <h3 class="sec">일별 출석</h3>
+  <div class="card chart">${colChart(perDay, { label: `${+m.slice(5)}월 일별 출석`, mark: today() })}</div>
+  <div class="two">
+    <div><h3 class="sec">요일별 출석</h3><div class="card chart">${colChart(wdRows, { label: '요일별 출석' })}</div></div>
+    <div><h3 class="sec">많이 온 회원</h3><div class="list">${top.map(([n, k], i) => `<div class="item"><span class="rank num">${i + 1}</span><div class="who static"><span class="nm">${esc(n)}</span></div><span class="num t-mut">${k}회</span></div>`).join('') || '<div class="item"><span class="sub">아직 출석이 없어요</span></div>'}</div></div>
+  </div>
+  <h3 class="sec">반별 참석률 <span>예약한 수업 중 출석한 비율</span></h3>
+  <div class="card">${clsRows.length ? barList(clsRows) : '<p class="hint" style="margin:0">이달 지난 수업 예약이 아직 없어요.</p>'}</div>
+  <p class="hint">출석·예약은 이 앱·태블릿·QR로 찍힌 것만 세요. 시트에서 옮겨 온 예전 사용 횟수는 들어가지 않아요.</p>`;
+  $('#mp').onclick = () => { state.statMonth = monthAdd(m, -1); refresh(); };
+  $('#mn').onclick = () => { state.statMonth = monthAdd(m, 1); refresh(); };
+  bindTips();
+}
+
 function renderMore(){
   const file = (id, t, d) => `<div class="item"><div class="who static"><span class="nm">${t}</span><span class="meta wrap">${d}</span></div><label class="btn ghost sm file">파일 선택<input type="file" id="${id}" accept=".json,application/json"></label></div>`;
   app.innerHTML = `
@@ -991,7 +1111,7 @@ function renderMore(){
     <div class="row g8"><button class="btn" id="qrP">QR 인쇄하기</button><button class="btn ghost" id="qrN">새로 만들기</button></div></div>
   <h3 class="sec">데이터</h3>
   <div class="list">
-    <div class="item"><div class="who static"><span class="nm">백업 내려받기</span><span class="meta wrap">이용권과 출석 기록 전체를 파일로 저장해요. 한 달에 한 번 받아 두세요.</span></div><button class="btn ghost sm" id="bak">받기</button></div>
+    <div class="item"><div class="who static"><span class="nm">백업 내려받기</span><span class="meta wrap">이용권·출석·예약·반·계획·운동 기록 전체를 파일로 저장해요. 한 달에 한 번 받아 두세요.</span></div><button class="btn ghost sm" id="bak">받기</button></div>
     ${file('imp', '기존 시트 데이터 가져오기', '받은 <b>무플_가져오기.json</b>. 처음 한 번만 하면 돼요.')}
     ${file('wkImp', '운동 기록 가져오기', '받은 <b>무플_운동기록.json</b>. 개인 기록지의 운동 기록과 수업 목표가 들어와요.')}
     ${file('phImp', '휴대폰 번호 한 번에 넣기', '받은 <b>무플_전화번호.json</b>. 이름이 같은 회원에게 번호가 들어가요.')}
@@ -1093,6 +1213,7 @@ function moneyCheckIn(p, date){
 
 /* ---------- 출석 QR ---------- */
 const CHECK_URL = 'https://rlaehgus114-dev.github.io/moveplay_sc/check/';
+const ME_URL = 'https://rlaehgus114-dev.github.io/moveplay_sc/me/';  // 회원용 화면
 // 출석 비밀 값 (QR과 센터 태블릿 화면이 같은 값을 써요. 새로 만들면 둘 다 바뀌어요)
 async function qrKey(renew){
   const ref = fb.doc(db, 'config', 'qr');
@@ -1368,6 +1489,7 @@ async function openPass(id){
     <div class="acts">
       <button class="btn ghost" id="ed">수정</button>
       <button class="btn ghost" id="rn">재등록</button>
+      <button class="btn ghost" id="ml">회원 링크</button>
       <button class="btn red" id="ar">${p.archived ? '되살리기' : '만료 처리'}</button>
       <span class="grow"></span><button class="btn" id="cl">닫기</button>
     </div>`);
@@ -1380,6 +1502,7 @@ async function openPass(id){
     const g = prompt(`${p.name}님 수업 목표`, goal); if (g === null) return;
     await fb.setDoc(fb.doc(db, 'profiles', p.name), { goal: g.trim() }, { merge: true }); toast('목표를 저장했어요'); openPass(p.id);
   };
+  $('#ml').onclick = () => memberLinkDlg(p);
   $('#rn').onclick = () => editPass({ name: p.name, cls: p.cls, phone: p.phone || '', kind: p.kind || '', priceP: p.priceP, priceG: p.priceG, _renew: p.id });
   $('#ar').onclick = async () => { await fb.updateDoc(fb.doc(db, 'passes', id), { archived: !p.archived }); p.archived = !p.archived; closeDlg(); refresh(); };
 }
@@ -1447,12 +1570,53 @@ async function importFile(file){
   document.querySelectorAll('#nav button').forEach(x => x.classList.toggle('on', x.dataset.t === 'members')); render();
 }
 
+// 백업: 출석 QR 비밀 값(config)만 빼고 모든 컬렉션
+const BACKUP_COLS = ['passes', 'attendance', 'bookings', 'classes', 'plans', 'workouts', 'groupWorkouts', 'profiles', 'memberLinks'];
 async function backup(){
-  const a = await fb.getDocs(fb.collection(db, 'attendance'));
-  const data = { exportedAt: new Date().toISOString(), passes: state.passes, attendance: a.docs.map(d => ({ id: d.id, ...d.data(), createdAt: null })) };
+  toast('백업 파일을 만드는 중…');
+  const data = { exportedAt: new Date().toISOString(), app: '무플 관리자' };
+  const plain = v => v && typeof v.toDate === 'function' ? v.toDate().toISOString() : v;
+  for (const c of BACKUP_COLS) {
+    try {
+      const snap = await fb.getDocs(fb.collection(db, c));
+      data[c] = snap.docs.map(d => Object.fromEntries([['id', d.id], ...Object.entries(d.data()).map(([k, v]) => [k, plain(v)])]));
+    } catch(e) { data[c] = { error: e.code || e.message }; }
+  }
+  const n = BACKUP_COLS.reduce((a, c) => a + (Array.isArray(data[c]) ? data[c].length : 0), 0);
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }));
   const el = document.createElement('a'); el.href = url; el.download = `무플_백업_${today()}.json`; el.click();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
+  toast(`백업 파일을 받았어요 · ${n.toLocaleString()}건`);
+}
+
+/* ---------- 회원용 링크 ----------
+   회원마다 추측할 수 없는 링크 값을 만들어 memberLinks/{값} = { name } 에 저장해요.
+   회원용 화면(me/)은 이 값으로 Apps Script(apps-script/member-view.gs)에 물어봐서 자기 정보만 받아요. */
+async function memberLink(name, renew){
+  const pref = fb.doc(db, 'profiles', name), prof = await fb.getDoc(pref);
+  const old = prof.exists() ? prof.data().link : '';
+  if (old && !renew) return old;
+  const a = new Uint8Array(18); crypto.getRandomValues(a);
+  const t = [...a].map(b => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 56]).join('');
+  const batch = fb.writeBatch(db);
+  if (old) batch.delete(fb.doc(db, 'memberLinks', old));
+  batch.set(fb.doc(db, 'memberLinks', t), { name, createdAt: fb.serverTimestamp() });
+  batch.set(pref, { link: t }, { merge: true });
+  await batch.commit();
+  return t;
+}
+async function memberLinkDlg(p, renew){
+  let t; try { t = await memberLink(p.name, renew); } catch(e) { return toast('링크를 만들지 못했어요. 보안 규칙에 memberLinks 허용이 필요해요'); }
+  const url = ME_URL + '?t=' + t;
+  dialog(`<div class="name">${esc(p.name)}님 회원용 링크</div>
+    <p class="hint">회원이 이 링크를 열면 남은 횟수, 다음 예약, 최근 출석, 숙제를 볼 수 있어요. 카톡으로 보내 주세요. 로그인 없이 열리니 본인에게만 보내세요.</p>
+    <div class="linkbox num" id="ml_url">${esc(url)}</div>
+    <div class="row g8" style="margin-top:10px"><button class="btn" id="ml_copy">링크 복사</button><a class="btn ghost" href="${esc(url)}" target="_blank" rel="noopener">열어 보기</a></div>
+    <p class="hint" style="margin-top:14px">링크가 다른 사람에게 갔다면 새로 만드세요. 예전 링크는 바로 안 열려요.</p>
+    <div class="acts"><button class="btn red" id="ml_new">새 링크로 바꾸기</button><span class="grow"></span><button class="btn ghost" id="cn">닫기</button></div>`);
+  $('#cn').onclick = () => openPass(p.id);
+  $('#ml_copy').onclick = async () => { try { await navigator.clipboard.writeText(url); toast('링크를 복사했어요'); } catch(e) { const r = document.createRange(); r.selectNodeContents($('#ml_url')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); toast('링크를 선택했어요. 길게 눌러 복사하세요'); } };
+  $('#ml_new').onclick = () => { if (confirm('새 링크로 바꿀까요? 예전 링크는 더 이상 안 열려요.')) memberLinkDlg(p, true); };
 }
 
 function dialog(html){ const d = $('#dlg'); $('#dlgBody').innerHTML = html; if (!d.open) d.showModal(); d.scrollTop = 0; }
