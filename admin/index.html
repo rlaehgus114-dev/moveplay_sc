@@ -177,6 +177,13 @@ ul.steps{padding-left:18px;margin-top:0}ul.steps li{margin:2px 0}
 .item.skipped{background:var(--sunk)}
 #dlg .list{margin-bottom:4px}
 #dlg .sec-row{margin:20px 0 8px}
+.st{flex:0 0 auto;min-width:76px;min-height:36px;padding:0 12px;border-radius:99px;font-size:13px;font-weight:800;cursor:pointer;border:1.5px solid transparent}
+.st.plan{background:var(--surface);border-color:var(--line);color:var(--ink)}
+.st.ok{background:var(--g2);color:var(--g)}
+.st.ok::before{content:"✓ "}
+.st.no{background:var(--red2);color:var(--red)}
+.st.wait{background:var(--sunk);color:var(--mut)}
+.st:disabled{opacity:.5;cursor:default}
 details.more-list{margin-top:18px}
 details.more-list summary{cursor:pointer;font-size:14px;font-weight:700;color:var(--mut);padding:8px 4px;list-style:none}
 details.more-list summary::before{content:"＋ "}
@@ -529,7 +536,7 @@ async function renderSched(){
   app.querySelectorAll('[data-np2]').forEach(b => b.onclick = () => editPlan(b.dataset.np2, wk));
   app.querySelectorAll('[data-np]').forEach(b => b.onclick = () => { const x = plans.find(y => y.member === b.dataset.np); editPlan(b.dataset.np, wk, x); });
 }
-// 수업 하나: 명단(출석·빠짐) + 운동 계획 + 수업 기록
+// 수업 하나: 명단(출석·결석) + 운동 계획 + 수업 기록
 async function openSession(d, key){
   const wk = weekStart(d);
   const [plans, books, glogs, wq] = await Promise.all([loadWeekPlans(wk), weekBooks(wk), weekGroupLogs(wk), fb.getDocs(fb.query(fb.collection(db, 'workouts'), fb.where('date', '==', d)))]);
@@ -539,21 +546,31 @@ async function openSession(d, key){
   const x = g ? groupPlanFor(plans, c.name, d, s.time) : null, gl = g ? groupLogFor(glogs, c.name, d, s.time) : null;
   const skipped = c ? (c.skips || []).filter(k => k.startsWith(`${d}|${s.time}|`)) : [];
   const byId = Object.fromEntries(state.passes.map(p => [p.id, p]));
+  // 회원마다 상태 하나: 수업 전날까지는 출석 예정 ↔ 결석, 당일부터는 출석 ↔ 결석 (찍지 않으면 결석)
+  const started = d < today() || (d === today() && s.time <= nowHM());
+  const stBtn = (st, attr) => `<button class="st ${st}" ${attr}>${{ plan: '출석 예정', ok: '출석', no: '결석', wait: '출석 전' }[st]}</button>`;
+  const logOf = name => state.logs.find(l => l.date === d && (byId[l.passId]?.name || l.name) === name);
   const row = b => {
     const p = byId[b.passId], here = att.has(b.name);
-    const st = future ? '' : here ? '<span class="tag">출석</span>' : past ? '<span class="tag red">안 옴</span>' : '<span class="tag gray">아직</span>';
-    const act = future ? (b.auto ? `<button class="btn line sm" data-skip="${b.id}">이번만 빠짐</button>` : `<button class="btn red sm" data-delb="${b.id}">취소</button>`)
-      : !here && d === today() && p ? `<button class="btn sm" data-sck="${p.id}">출석</button>` : '';
-    const ptBtns = !g ? `${here && !wrote.has(b.name) ? `<button class="btn sm" data-swk="${esc(b.name)}">운동 기록</button>` : ''}` : '';
-    return `<div class="item"><div class="who static"><span class="nm">${esc(b.name)}${st}${c && !b.auto ? '<span class="tag gray">이번만 추가</span>' : ''}${!g && wrote.has(b.name) ? '<span class="tag">기록 완료</span>' : ''}</span><span class="meta">${esc(p?.cls || b.cls || '')}${p && !p.phone ? ' · <b class="t-red">번호 없음</b>' : ''}${b.notified ? ' · 알림 발송됨' : ''}</span></div>${ptBtns}${act}</div>`;
+    const btn = future ? stBtn('plan', `data-absent="${b.id}"`)
+      : here ? stBtn('ok', `data-unatt="${esc(b.name)}"`)
+      : stBtn(started ? 'no' : 'wait', p ? `data-att="${p.id}"` : 'disabled');
+    const ptBtns = !g && here && !wrote.has(b.name) ? `<button class="btn sm" data-swk="${esc(b.name)}">운동 기록</button>` : '';
+    return `<div class="item"><div class="who static"><span class="nm">${esc(b.name)}${c && b.classId && !b.auto ? '<span class="tag gray">이번만 추가</span>' : ''}${!g && wrote.has(b.name) ? '<span class="tag">기록 완료</span>' : ''}</span><span class="meta">${esc(p?.cls || b.cls || '')}${p && !p.phone ? ' · <b class="t-red">번호 없음</b>' : ''}${b.notified ? ' · 알림 발송됨' : ''}</span></div>${ptBtns}${btn}</div>`;
+  };
+  // 미리 결석으로 바꾼 회원 (예약은 지워져 있음)
+  const absRow = k => {
+    const name = k.split('|')[2], here = att.has(name), p = pickPass(name, c.kind);
+    const btn = future ? stBtn('no', `data-unskip="${esc(c.id + '|' + k)}"`) : here ? stBtn('ok', `data-unatt="${esc(name)}"`) : stBtn('no', p ? `data-att="${p.id}"` : 'disabled');
+    return `<div class="item"><div class="who static"><span class="nm">${esc(name)}</span><span class="meta">${here ? '결석으로 연락했지만 출석함' : '미리 결석 연락 · 알림톡 안 감'}</span></div>${btn}</div>`;
   };
   const ptPlans = !g ? s.bs.map(b => ({ n: b.name, x: plans.find(y => y.member === b.name && y.day === d) || plans.find(y => y.member === b.name && !y.done) })) : [];
   dialog(`
     <div class="name">${fmtDay(d)} ${s.time} ${esc(c ? c.name : '개인 PT')}</div>
     <p class="hint" style="margin-top:2px">${c ? esc(sessLbl(c)) + ' 반' + (c.cap ? ` · 정원 ${c.cap}명` : '') : '반에 묶이지 않은 예약'}</p>
-    <div class="sec-row"><div class="grow sec">명단 <span>${s.bs.length}명</span></div><button class="btn ghost sm" id="s_add">+ 이번만 추가</button></div>
-    <div class="list">${s.bs.map(row).join('') || '<div class="item"><span class="sub">아직 아무도 없어요</span></div>'}
-      ${skipped.map(k => `<div class="item skipped"><div class="who static"><span class="nm">${esc(k.split('|')[2])}<span class="tag gray">이번만 빠짐</span></span></div><button class="btn ghost sm" data-unskip="${esc(c.id + '|' + k)}">되돌리기</button></div>`).join('')}</div>
+    <div class="sec-row"><div class="grow sec">명단 <span>${s.bs.length}명${skipped.length ? ` · 결석 연락 ${skipped.length}명` : ''}</span></div><button class="btn ghost sm" id="s_add">+ 이번만 추가</button></div>
+    <p class="hint" style="margin-top:-2px">${future ? '누르면 <b class="t-ink">출석 예정 ↔ 결석</b>이 바뀌어요. 결석이면 전날 알림톡이 안 가고 자리가 비어요.' : '출석을 찍지 않은 회원은 결석이에요. 결석을 누르면 출석으로 바꿔요(횟수 차감).'}</p>
+    <div class="list">${s.bs.map(row).join('')}${skipped.map(absRow).join('')}${!s.bs.length && !skipped.length ? '<div class="item"><span class="sub">아직 아무도 없어요</span></div>' : ''}</div>
     ${g ? `
     <div class="sec-row"><div class="grow sec">운동 계획</div><button class="btn ghost sm" id="s_plan">${x ? '계획 수정' : '+ 계획 쓰기'}</button></div>
     ${x ? `<div class="wk">${x.title ? `<div class="d"><span>${esc(x.title)}${x.time ? '' : ' <span class="t-mut">(모든 타임 공통)</span>'}</span></div>` : ''}<ul>${(x.items || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>` : '<p class="hint">아직 계획이 없어요. 계획 쓰기에서 지난 수업이나 다른 타임 계획을 불러올 수 있어요.</p>'}
@@ -567,10 +584,10 @@ async function openSession(d, key){
   const again = () => openSession(d, key);
   $('#cl').onclick = () => { closeDlg(); refresh(); };
   $('#s_add').onclick = () => addBooking(d, s.time, c ? c.id : '');
-  document.querySelectorAll('#dlg [data-skip]').forEach(b => b.onclick = async () => { await skipBooking(b.dataset.skip); again(); });
-  document.querySelectorAll('#dlg [data-delb]').forEach(b => b.onclick = async () => { await delBooking(b.dataset.delb); again(); });
-  document.querySelectorAll('#dlg [data-unskip]').forEach(b => b.onclick = async () => { const [cid, ...k] = b.dataset.unskip.split('|'); await unskip(cid, k.join('|')); again(); });
-  document.querySelectorAll('#dlg [data-sck]').forEach(b => b.onclick = async () => { b.disabled = true; await checkIn(b.dataset.sck, d); if (!$('#dlg').open) again(); });
+  document.querySelectorAll('#dlg [data-absent]').forEach(b => b.onclick = async () => { b.disabled = true; await markAbsent(b.dataset.absent); again(); });
+  document.querySelectorAll('#dlg [data-unskip]').forEach(b => b.onclick = async () => { b.disabled = true; const [cid, ...k] = b.dataset.unskip.split('|'); await unskip(cid, k.join('|')); again(); });
+  document.querySelectorAll('#dlg [data-att]').forEach(b => b.onclick = async () => { b.disabled = true; await checkIn(b.dataset.att, d); if ($('#dlg').open && !$('#dlg [data-mk]') && !$('#w_i')) again(); });
+  document.querySelectorAll('#dlg [data-unatt]').forEach(b => b.onclick = async () => { const l = logOf(b.dataset.unatt); if (!l) return; await undo(l.id); again(); });
   document.querySelectorAll('#dlg [data-swk]').forEach(b => b.onclick = () => writeWorkout(b.dataset.swk, d));
   document.querySelectorAll('#dlg [data-spl]').forEach(b => b.onclick = () => { const it = ptPlans.find(y => y.n === b.dataset.spl); editPlan(it.n, wk, it.x || undefined); });
   if ($('#s_plan')) $('#s_plan').onclick = () => {
@@ -621,24 +638,31 @@ async function delBooking(id){
   state.books = state.books.filter(x => x.id !== id);
   toast('예약을 취소했어요'); refresh();
 }
-// 반 예약에서 이번 한 번만 빼기 (다음 주부터는 그대로)
-async function skipBooking(id){
-  const b = state.books.find(x => x.id === id); const c = state.classes.find(x => x.id === b?.classId);
-  if (!b || !c) return delBooking(id);
-  if (!confirm(`${b.name}님을 ${fmtDay(b.date)} ${b.time} ${c.name}에서 이번만 뺄까요?\n다음 수업부터는 그대로 예약돼요.`)) return;
+// 수업 전 결석: 그날 예약만 지우고 반의 skips 에 적어 두기 (다음 수업부터는 그대로, 다시 누르면 출석 예정)
+async function markAbsent(id){
+  const b = state.books.find(x => x.id === id); if (!b) return;
+  const c = state.classes.find(x => x.id === b.classId);
+  if (!c) return delBooking(id);
   c.skips = [...new Set([...(c.skips || []).filter(k => k.slice(0, 10) >= today()), skipKey(b.date, b.time, b.name)])];
   const batch = fb.writeBatch(db);
   batch.update(fb.doc(db, 'classes', c.id), { skips: c.skips });
   batch.delete(fb.doc(db, 'bookings', id));
   await batch.commit();
   state.books = state.books.filter(x => x.id !== id);
-  toast(`${b.name}님 이번만 빠짐`); refresh();
+  toast(`${b.name}님 ${fmtDay(b.date)} 결석 · 알림톡 안 가요`);
 }
+// 결석 → 출석 예정: 명단 회원이면 자동 예약이 다시 생기고, 이번만 추가였던 회원은 예약을 다시 만들기
 async function unskip(classId, key){
   const c = state.classes.find(x => x.id === classId); if (!c) return;
+  const [date, time, name] = key.split('|');
   c.skips = (c.skips || []).filter(k => k !== key);
   await fb.updateDoc(fb.doc(db, 'classes', c.id), { skips: c.skips });
-  await syncAuto(); toast('다시 예약했어요'); refresh();
+  await syncAuto();
+  if (!state.books.some(b => b.date === date && b.time === time && b.name === name)) {
+    const p = pickPass(name, c.kind);
+    if (p) { const ref = fb.doc(fb.collection(db, 'bookings')); const doc = { date, time, passId: p.id, name, cls: p.cls || '', slot: c.name, classId: c.id, notified: false, createdAt: fb.serverTimestamp() }; await fb.setDoc(ref, doc); state.books.push({ id: ref.id, ...doc }); }
+  }
+  toast(`${name}님 출석 예정으로 바꿨어요`);
 }
 
 /* ---------- 반 관리 ---------- */
