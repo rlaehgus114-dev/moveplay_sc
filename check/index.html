@@ -1,36 +1,70 @@
 <!doctype html>
 <html lang="ko"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="robots" content="noindex, nofollow"><title>무브앤플레이 출석</title>
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1f6f4a">
 <style>
 :root{--g:#1f6f4a;--g2:#e8f3ec;--ink:#1d2421;--mut:#6b746f;--red:#c0392b}
-*{box-sizing:border-box}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;min-height:100vh;background:var(--g);color:#fff;font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;display:flex;align-items:center;justify-content:center;padding:24px}
 main{width:100%;max-width:420px;text-align:center}
 h1{font-size:26px;margin:0 0 6px}
 .k{font-size:16px;opacity:.85;line-height:1.6;margin:0 0 22px}
 .big{font-size:30px;font-weight:800;margin:0 0 10px;line-height:1.3}
 input{width:100%;font-size:24px;text-align:center;padding:16px;border:0;border-radius:14px;letter-spacing:.05em}
-button{display:block;width:100%;border:0;border-radius:14px;padding:18px;font-size:20px;font-weight:800;margin-top:12px;background:#fff;color:var(--g)}
+button{display:block;width:100%;border:0;border-radius:14px;padding:18px;font-size:20px;font-weight:800;margin-top:12px;background:#fff;color:var(--g);font-family:inherit;cursor:pointer}
 button.sub{background:rgba(255,255,255,.14);color:#fff;font-weight:600;font-size:16px;padding:14px}
 button small{display:block;font-size:14px;font-weight:500;opacity:.75;margin-top:4px}
 label{display:flex;gap:8px;align-items:center;justify-content:center;font-size:15px;margin-top:12px;opacity:.9}
 label input{width:20px;height:20px}
 .err{background:#fff;color:var(--red);border-radius:12px;padding:12px;font-weight:700;margin-top:14px}
+/* 키오스크 (센터 태블릿) */
+body.kiosk{user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+body.kiosk main{max-width:480px}
+body.kiosk h1{font-size:34px}
+body.kiosk .k{font-size:19px}
+body.kiosk .big{font-size:36px}
+body.kiosk button{font-size:24px;padding:22px}
+body.kiosk button.sub{font-size:19px;padding:16px}
+.clock{font-size:17px;opacity:.75;margin:0 0 6px}
+.num{font-size:40px;font-weight:800;letter-spacing:.04em;margin:0 0 20px;font-variant-numeric:tabular-nums;min-height:52px}
+.num i{font-style:normal;opacity:.35}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:380px;margin:0 auto}
+.pad button{margin:0;height:84px;padding:0;font-size:34px;font-weight:700;background:rgba(255,255,255,.14);color:#fff;border-radius:18px}
+.pad button:active{background:rgba(255,255,255,.32)}
+.pad button.fn{font-size:20px}
+.pad button.ok{background:#fff;color:var(--g)}
+.pad button.ok:disabled{opacity:.35}
+.note{background:rgba(255,255,255,.16);border-radius:12px;padding:10px 12px;font-size:17px;font-weight:700;margin:0 0 16px}
+.bar{height:6px;border-radius:3px;background:rgba(255,255,255,.2);overflow:hidden;margin:26px auto 0;max-width:280px}
+.bar i{display:block;height:100%;background:#fff;transform-origin:left;animation:bar linear forwards}
+@keyframes bar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 </style></head><body><main id="m"><p class="big">불러오는 중…</p></main>
 <script>
 // Apps Script 웹 앱 주소 (큐알출석.gs 배포 후 넣기)
 const API = 'https://script.google.com/macros/s/AKfycbznZIGsnQYTuOGQUxwLpDvdi-akqlmGDu5rhH3EusRobiClrR6D4bGNlNn9yfTwWb_D/exec';
 const $ = s => document.querySelector(s);
 const m = $('#m');
-const key = new URLSearchParams(location.search).get('k') || '';
+const qs = new URLSearchParams(location.search);
+const key = qs.get('k') || '';
+// ?kiosk=1 : 센터 태블릿용. 번호를 기억하지 않고, 끝나면 첫 화면으로 돌아가요
+const KIOSK = qs.get('kiosk') === '1';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const get = () => { try { return localStorage.getItem('mp_phone') || ''; } catch(e) { return ''; } };
-const set = v => { try { v ? localStorage.setItem('mp_phone', v) : localStorage.removeItem('mp_phone'); } catch(e) {} };
+const get = () => { if (KIOSK) return ''; try { return localStorage.getItem('mp_phone') || ''; } catch(e) { return ''; } };
+const set = v => { if (KIOSK) return; try { v ? localStorage.setItem('mp_phone', v) : localStorage.removeItem('mp_phone'); } catch(e) {} };
 const fmt = p => p.replace(/^(\d{3})(\d{3,4})(\d{4})$/, (_, a, b, c) => `${a}-${'*'.repeat(b.length)}-${c}`);
+// 키오스크 화면엔 뒤에 선 사람도 보이니 이름 가운데를 가려요 (김도현 → 김*현)
+const nm = n => { n = String(n ?? ''); return !KIOSK || n.length <= 1 ? n : n.length === 2 ? n[0] + '*' : n[0] + '*'.repeat(n.length - 2) + n[n.length - 1]; };
+
+let timer, busy = false;
+function after(ms, fn){ clearTimeout(timer); if (ms) timer = setTimeout(fn, ms); }
+const bar = ms => KIOSK ? `<div class="bar"><i style="animation-duration:${ms}ms"></i></div>` : '';
 
 function home(err){
-  if (!key) { m.innerHTML = '<p class="big">센터에 붙어 있는 QR을 찍어 주세요</p>'; return; }
+  busy = false; after(0);
+  if (!key) { m.innerHTML = KIOSK ? '<p class="big">출석 화면 주소가 올바르지 않아요</p><p class="k">관리자 앱 → 설정 → 센터 태블릿 출석 화면에서 다시 열어 주세요</p>' : '<p class="big">센터에 붙어 있는 QR을 찍어 주세요</p>'; return; }
+  if (KIOSK) return kioskHome(err);
   const saved = get();
   if (saved) {
     m.innerHTML = `<h1>무브앤플레이 출석</h1><p class="k">아래 버튼만 누르면 출석돼요</p>
@@ -52,29 +86,87 @@ function home(err){
   };
 }
 
+/* ---------- 키오스크: 숫자 패드로 휴대폰 번호 입력 ---------- */
+function kioskHome(err){
+  let ph = '010';
+  const d = new Date();
+  m.innerHTML = `<p class="clock">${d.getMonth() + 1}월 ${d.getDate()}일 (${'일월화수목금토'[d.getDay()]})</p>
+    <h1>무브앤플레이 출석</h1><p class="k">센터에 등록한 <b>휴대폰 번호</b>를 눌러 주세요</p>
+    ${err ? `<div class="note">${esc(err)}</div>` : ''}
+    <div class="num" id="num"></div>
+    <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n => `<button data-n="${n}">${n}</button>`).join('')}<button class="fn" data-n="del">지움</button><button data-n="0">0</button><button class="fn ok" data-n="ok" id="ok">출석</button></div>`;
+  const show = () => {
+    // 010-1234-5678 모양으로 보여 주고, 아직 안 누른 칸은 흐리게
+    const t = (ph + '___________').slice(0, 11);
+    const s = `${t.slice(0, 3)}-${t.slice(3, 7)}-${t.slice(7)}`;
+    $('#num').innerHTML = s.replace(/_+/g, x => `<i>${'·'.repeat(x.length)}</i>`);
+    $('#ok').disabled = !/^01\d{8,9}$/.test(ph);
+  };
+  const submit = () => { if (/^01\d{8,9}$/.test(ph)) send({ phone: ph }); };
+  m.querySelectorAll('[data-n]').forEach(b => b.onclick = () => {
+    const n = b.dataset.n;
+    after(0);   // 누르는 중엔 안내 지우기 타이머 멈춤
+    if (n === 'ok') return submit();
+    ph = n === 'del' ? ph.slice(0, -1) : (ph + n).slice(0, 11);
+    show();
+    if (ph.length === 11) submit();
+  });
+  show();
+  // 에러 안내는 20초 뒤 지우기
+  if (err) after(20000, () => kioskHome());
+}
+// 실물 키보드(블루투스 키패드 등)도 받기
+document.addEventListener('keydown', e => {
+  if (!KIOSK || busy) return;
+  const b = /^\d$/.test(e.key) ? m.querySelector(`[data-n="${e.key}"]`) : e.key === 'Backspace' ? m.querySelector('[data-n="del"]') : e.key === 'Enter' ? m.querySelector('[data-n="ok"]') : null;
+  if (b && !b.disabled) { e.preventDefault(); b.click(); }
+});
+
 async function send(body){
+  if (busy) return;   // 두 번 눌러도 한 번만 출석
+  busy = true; after(0);
   m.innerHTML = '<p class="big">출석 중…</p>';
   let r;
   try {
     const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ k: key, ...body }) });
     r = await res.json();
   } catch(e) { return home('인터넷 연결을 확인하고 다시 눌러 주세요'); }
-  if (!r.ok) { if (r.code === 'phone') set(''); return r.code === 'dup' ? done(`${esc(r.name)}님`, '오늘은 이미 출석했어요. 오늘도 화이팅!') : home(r.msg); }
+  busy = false;
+  if (!r.ok) {
+    if (r.code === 'phone') set('');
+    if (r.code === 'dup') return done(`${esc(nm(r.name))}님`, '오늘은 이미 출석했어요. 오늘도 화이팅!');
+    return home(r.msg || (KIOSK ? '번호를 다시 확인하시거나 선생님께 말씀해 주세요' : '다시 시도해 주세요'));
+  }
   if (r.step === 'pick') {
-    m.innerHTML = `<p class="big">${esc(r.name)}님<br>오늘 쓸 이용권을 골라 주세요</p>
-      ${r.options.map(o => `<button data-p="${esc(o.id)}">${esc(o.label)}${o.left != null ? `<small>남은 ${o.left}회</small>` : ''}</button>`).join('')}
+    m.innerHTML = `<p class="big">${esc(nm(r.name))}님<br>오늘 쓸 이용권을 골라 주세요</p>
+      ${r.options.map(o => `<button data-p="${esc(o.id)}">${esc(o.label)}${o.left != null ? `<small>남은 ${esc(o.left)}회</small>` : ''}</button>`).join('')}
       <button class="sub" id="bk">처음으로</button>`;
     document.querySelectorAll('[data-p]').forEach(b => b.onclick = () => send({ ...body, passId: b.dataset.p }));
     $('#bk').onclick = () => home();
+    if (KIOSK) after(30000, home);
   } else if (r.step === 'kind') {
-    m.innerHTML = `<p class="big">${esc(r.name)}님<br>오늘 어떤 수업인가요?</p>
+    m.innerHTML = `<p class="big">${esc(nm(r.name))}님<br>오늘 어떤 수업인가요?</p>
       <button data-k="개인">개인 PT</button><button data-k="그룹">그룹 수업</button><button class="sub" id="bk">처음으로</button>`;
     document.querySelectorAll('[data-k]').forEach(b => b.onclick = () => send({ ...body, passId: r.passId, kind: b.dataset.k }));
     $('#bk').onclick = () => home();
+    if (KIOSK) after(30000, home);
   } else if (r.step === 'done') {
-    done(`${esc(r.name)}님 출석 완료!`, r.left != null ? (r.left <= 3 ? `남은 횟수 <b>${r.left}회</b><br>재등록은 선생님께 문의해 주세요` : `남은 횟수 <b>${r.left}회</b>`) : esc(r.msg || ''));
-  }
+    const l = r.left != null ? +r.left : null;
+    done(`${esc(nm(r.name))}님 출석 완료!`, l != null ? (l <= 3 ? `남은 횟수 <b>${l}회</b><br>재등록은 선생님께 문의해 주세요` : `남은 횟수 <b>${l}회</b>`) : esc(r.msg || ''));
+  } else home();
 }
-function done(t, s){ m.innerHTML = `<p class="big">${t}</p><p class="k">${s}</p>`; }
+function done(t, s){
+  const ms = 6000;
+  m.innerHTML = `<p class="big">${t}</p><p class="k">${s}</p>${KIOSK ? `<button class="sub" id="bk">다음 분 출석</button>${bar(ms)}` : ''}`;
+  if (KIOSK) { $('#bk').onclick = () => home(); after(ms, home); }
+}
+
+if (KIOSK) {
+  document.body.classList.add('kiosk');
+  // 화면이 꺼지지 않게 (지원하는 브라우저에서만)
+  const lock = () => { try { navigator.wakeLock?.request('screen').catch(() => {}); } catch(e) {} };
+  lock(); document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && lock());
+  document.addEventListener('contextmenu', e => e.preventDefault());
+}
 home();
 </script></body></html>
