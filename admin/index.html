@@ -50,7 +50,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 
 /* 아래 탭 (휴대폰) */
-#nav{position:fixed;left:0;right:0;bottom:0;z-index:8;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(6,minmax(0,1fr));padding:4px max(4px,env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) max(4px,env(safe-area-inset-left,0px))}
+#nav{position:fixed;left:0;right:0;bottom:0;z-index:8;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:4px max(4px,env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) max(4px,env(safe-area-inset-left,0px))}
 #nav button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0 4px;font-size:11px;font-weight:700;color:var(--mut);cursor:pointer;border-radius:12px;position:relative}
 #nav button.on{color:var(--g)}
 #nav button.on svg{stroke-width:2.4}
@@ -161,6 +161,22 @@ ul.steps{padding-left:18px;margin-top:0}ul.steps li{margin:2px 0}
 .wds{display:flex;gap:4px;flex-wrap:wrap}
 .wds button{width:36px;height:36px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);color:var(--mut);font-weight:800;font-size:14px;cursor:pointer}
 .wds button.on{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+.today-h{display:flex;flex-direction:column;gap:6px;margin:4px 4px 6px}
+.td-date{font-family:var(--f-display);font-size:30px;line-height:1.1;letter-spacing:.01em}
+.td-sum{display:flex;flex-wrap:wrap;gap:4px 14px;color:var(--mut);font-size:14px}
+.td-sum b{font-size:18px;color:var(--ink);margin-right:2px}
+.item.todo{position:relative}
+.item.todo::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:0 3px 3px 0;background:var(--line)}
+.item.todo.amber::before{background:var(--amber)}.item.todo.red::before{background:var(--red)}
+.more-row{display:block;width:100%;border:0;border-top:1px solid var(--line);background:none;padding:12px;font-size:14px;font-weight:800;color:var(--g);cursor:pointer}
+.who .tm{font-weight:600;margin-right:8px}
+.who .meta i{font-style:normal}
+.who .meta i.ok{color:var(--g);font-weight:800}
+.who .meta i.no{color:var(--mut);text-decoration:line-through;text-decoration-color:var(--line)}
+.sec.now{color:var(--g)}
+.item.skipped{background:var(--sunk)}
+#dlg .list{margin-bottom:4px}
+#dlg .sec-row{margin:20px 0 8px}
 details.more-list{margin-top:18px}
 details.more-list summary{cursor:pointer;font-size:14px;font-weight:700;color:var(--mut);padding:8px 4px;list-style:none}
 details.more-list summary::before{content:"＋ "}
@@ -225,11 +241,9 @@ label.pick+label.pick{border-top:1px solid var(--line)}
 <body>
 <header class="bar"><img id="logo" src="data:image/png;base64,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" alt=""><h1><span id="pgT">무플 관리자</span></h1><span class="bar-d" id="barD"></span><button id="btnOut" class="icon-btn hidden" aria-label="로그아웃" title="로그아웃"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l-4-4 4-4M6 12h10"/></svg></button></header>
 <nav id="nav" class="hidden" aria-label="메뉴">
-  <button data-t="check" class="on"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg><span>출석</span></button>
-  <button data-t="book"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>예약</span></button>
-  <button data-t="plan"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 9.5h6M9 13.5h6M9 17.5h3"/></svg><span>계획</span></button>
+  <button data-t="today" class="on"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-6.5 8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/></svg><span>오늘</span></button>
+  <button data-t="sched"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M8 14h2M14 14h2M8 17h2"/></svg><span>시간표</span></button>
   <button data-t="members"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8.5" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M15.5 5.2a3.5 3.5 0 0 1 0 6.6M18 14.8c1.8.7 3 2.4 3.5 5.2"/></svg><span>회원</span></button>
-  <button data-t="log"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span>기록</span></button>
   <button data-t="more"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>설정</span></button>
 </nav>
 <main id="app"><div class="center hint">불러오는 중…</div></main>
@@ -280,7 +294,7 @@ boot(cfg).catch(e => { app.innerHTML = `<div class="card"><div class="name">시�
 window.addEventListener('unhandledrejection', e => { console.error(e.reason); toast('저장하지 못했어요. 인터넷 연결을 확인하고 다시 해 주세요'); });
 
 /* ---------- 2. 시작 ---------- */
-let fb, db, auth, state = { passes: [], logs: [], books: [], classes: [], bookView: 'day', tab: 'check', filter: '전체', q: '', bookDate: null, ckDate: null };
+let fb, db, auth, state = { passes: [], logs: [], books: [], classes: [], schedView: 'week', memView: 'list', week: null, tab: 'today', filter: '전체', q: '', bookDate: null, ckDate: null };
 const ckDay = () => state.ckDate || today();
 const dayLbl = s => /^\d{4}-\d\d-\d\d$/.test(s || '') ? fmtDay(s) : String(s || '').slice(5);
 
@@ -332,7 +346,7 @@ async function loadAll(){
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState !== 'visible' || !db || !auth?.currentUser) return;
   if (Date.now() - (state.loadedAt || 0) < 30000 || $('#dlg').open) return;
-  await loadAll(); render();
+  await loadAll(); refresh();
 });
 
 /* ---------- 계산 ---------- */
@@ -364,12 +378,14 @@ function status(p){
 document.querySelectorAll('#nav button').forEach(b => b.onclick = async () => {
   document.querySelectorAll('#nav button').forEach(x => x.classList.toggle('on', x === b));
   state.tab = b.dataset.t;
-  if (['check', 'log'].includes(state.tab) && Date.now() - (state.loadedAt || 0) > 30000) await loadAll();
+  if (['today', 'members'].includes(state.tab) && Date.now() - (state.loadedAt || 0) > 30000) await loadAll();
   render();
 });
 
-const TITLES = { check: '출석', book: '예약', plan: '주간 계획', members: '회원', log: '출석 기록', more: '설정' };
-function render(){ $('#pgT').textContent = TITLES[state.tab]; document.title = TITLES[state.tab] + ' · 무플 관리자'; ({ check: renderCheck, book: renderBook, plan: renderPlan, members: renderMembers, log: renderLog, more: renderMore })[state.tab](); window.scrollTo(0, 0); }
+const TITLES = { today: '오늘', sched: '시간표', members: '회원', more: '설정' };
+// 탭을 바꿀 땐 맨 위로, 저장 뒤 다시 그릴 땐(refresh) 보던 자리 그대로
+function refresh(){ $('#pgT').textContent = TITLES[state.tab]; document.title = TITLES[state.tab] + ' · 무플 관리자'; return ({ today: renderToday, sched: renderSched, members: renderMembers, more: renderMore })[state.tab](); }
+function render(){ refresh(); window.scrollTo(0, 0); }
 
 /* ---------- 반(정기 수업)과 자동 예약 ----------
    반에 회원을 한 번 넣어 두면 앱을 열 때마다 HORIZON일 앞까지 예약(bookings)을 채워요.
@@ -450,47 +466,119 @@ async function seedClasses(){
   await batch.commit(); state.classes = out;
 }
 
-/* ---------- 예약 ---------- */
-const segHtml = () => `<div class="seg" role="tablist"><button data-bv="day" class="${state.bookView === 'day' ? 'on' : ''}">날짜별 예약</button><button data-bv="classes" class="${state.bookView === 'classes' ? 'on' : ''}">반 관리 <span class="num">${actClasses().length}</span></button></div>`;
-const bindSeg = () => app.querySelectorAll('[data-bv]').forEach(b => b.onclick = () => { state.bookView = b.dataset.bv; renderBook(); });
-function renderBook(){
-  if (state.bookView === 'classes') return renderClasses();
-  const d = state.bookDate || (state.bookDate = addDays(today(), 1));
-  const list = state.books.filter(b => b.date === d);
-  const byId = Object.fromEntries(state.passes.map(p => [p.id, p]));
-  const cards = classSlotsOn(d).map(({ c, time }) => ({ c, time, bs: list.filter(b => b.time === time && (b.classId ? b.classId === c.id : (b.slot || '') === c.name)) }));
-  const used = new Set(cards.flatMap(x => x.bs.map(b => b.id)));
-  const extraT = [...new Set(list.filter(b => !used.has(b.id)).map(b => b.time))];
-  extraT.forEach(t => cards.push({ c: null, time: t, bs: list.filter(b => !used.has(b.id) && b.time === t) }));
-  cards.sort((a, b) => a.time.localeCompare(b.time));
-  const total = list.length;
-  const row = (b, c) => { const p = byId[b.passId]; const out = p && (isMoney(p) ? moneyLeft(p) <= 0 : left(p) <= 0); return `<div class="slot-r"><div class="grow">${esc(b.name)}${c && !b.auto ? '<span class="tag gray">이번만 추가</span>' : ''}<span class="sub">${esc(p?.cls || b.cls || '')}${p && !p.phone ? ' · <b class="t-red">번호 없음</b>' : ''}${out ? ' · <b class="t-red">남은 횟수 없음</b>' : ''}${b.notified ? ' · 알림 발송됨' : ''}</span></div>${b.auto ? `<button class="btn line sm" data-skip="${b.id}">이번만 빠짐</button>` : `<button class="btn red sm" data-delb="${b.id}">취소</button>`}</div>`; };
+/* ---------- 시간표: 예약(누가)과 계획(무엇을)과 수업 기록을 수업 하나로 ---------- */
+const nowHM = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+const koSort = (a, b) => a.localeCompare(b, 'ko');
+const segHtml = () => `<div class="seg" role="tablist"><button data-bv="week" class="${state.schedView === 'week' ? 'on' : ''}">주간 시간표</button><button data-bv="classes" class="${state.schedView === 'classes' ? 'on' : ''}">반 관리 <span class="num">${actClasses().length}</span></button></div>`;
+const bindSeg = () => app.querySelectorAll('[data-bv]').forEach(b => b.onclick = () => { state.schedView = b.dataset.bv; render(); });
+async function loadWeekPlans(wk){
+  const snap = await fb.getDocs(fb.query(fb.collection(db, 'plans'), fb.where('week', '==', wk)));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+async function weekBooks(wk){
+  if (wk >= addDays(today(), -7)) return state.books;
+  const q = await fb.getDocs(fb.query(fb.collection(db, 'bookings'), fb.where('date', '>=', wk), fb.where('date', '<=', addDays(wk, 6))));
+  return q.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+async function weekGroupLogs(wk){
+  const q = await fb.getDocs(fb.query(fb.collection(db, 'groupWorkouts'), fb.where('date', '>=', wk), fb.where('date', '<=', addDays(wk, 6))));
+  return q.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+// 날짜 하나의 수업들: 반 시간표 + 반에 안 묶인 예약(개인 PT 등)
+function sessionsOn(date, books = state.books){
+  const list = books.filter(b => b.date === date);
+  const out = classSlotsOn(date).map(({ c, time }) => ({ key: `${c.id}|${time}`, c, time, bs: list.filter(b => b.time === time && (b.classId ? b.classId === c.id : (b.slot || '') === c.name)) }));
+  const used = new Set(out.flatMap(x => x.bs.map(b => b.id)));
+  const rest = list.filter(b => !used.has(b.id));
+  [...new Set(rest.map(b => b.time))].forEach(t => out.push({ key: `x|${t}`, c: null, time: t, bs: rest.filter(b => b.time === t) }));
+  out.forEach(x => x.bs.sort((a, b) => koSort(a.name, b.name)));
+  return out.sort((a, b) => a.time.localeCompare(b.time));
+}
+const attendedSet = d => { const byId = Object.fromEntries(state.passes.map(p => [p.id, p])); return new Set(state.logs.filter(l => l.date === d).map(l => byId[l.passId]?.name || l.name)); };
+const groupPlanFor = (plans, group, day, time) => plans.find(y => y.group === group && y.time === time && (y.days || [y.day]).includes(day)) || plans.find(y => y.group === group && !y.time && (y.days || [y.day]).includes(day)) || null;
+const groupLogFor = (logs, group, day, time) => logs.find(g => g.group === group && g.date === day && (g.time || time) === time) || null;
+// 목록 한 줄: 시간·반·상태 태그·명단(출석한 사람은 초록)
+function sessItem(d, s, plans, glogs){
+  const g = s.c && s.c.kind !== 'pt', att = attendedSet(d);
+  const past = d < today() || (d === today() && s.time <= nowHM());
+  const x = g ? groupPlanFor(plans, s.c.name, d, s.time) : null, done = g && groupLogFor(glogs, s.c.name, d, s.time);
+  const tag = !g ? '' : done ? '<span class="tag">기록 완료</span>' : past ? (s.bs.length ? '<span class="tag amber">기록 전</span>' : '')  : x ? '<span class="tag gray">계획 있음</span>' : '<span class="tag red">계획 없음</span>';
+  const who = s.bs.map(b => d <= today() && att.has(b.name) ? `<i class="ok">${esc(b.name)}</i>` : d < today() || past ? `<i class="no">${esc(b.name)}</i>` : esc(b.name)).join(', ');
+  const cap = s.c?.cap;
+  return `<div class="item"><button class="who" data-sess="${d}|${esc(s.key)}"><span class="nm"><span class="num tm">${s.time}</span>${esc(s.c ? s.c.name : '개인 PT')}${tag}</span><span class="meta">${who || '명단 없음'}</span></button><div class="cnt${cap && s.bs.length > cap ? ' out' : ''}"><b>${s.bs.length}</b><small>${cap ? '/ ' + cap + '명' : '명'}</small></div></div>`;
+}
+async function renderSched(){
+  if (state.schedView === 'classes') return renderClasses();
+  const wk = state.week || (state.week = weekStart(today()));
+  const days = [...Array(7).keys()].map(i => addDays(wk, i));
+  const [plans, books, glogs] = await Promise.all([loadWeekPlans(wk), weekBooks(wk), weekGroupLogs(wk)]);
+  if (state.tab !== 'sched' || state.schedView !== 'week' || state.week !== wk) return;
+  const ptNames = [...new Set(state.passes.filter(p => !p.archived && (isPT(p) || isMoney(p))).map(p => p.name))].sort(koSort);
+  const ptDone = ptNames.filter(n => plans.some(x => x.member === n));
+  const dayHtml = days.map(d => { const ss = sessionsOn(d, books); if (!ss.length) return ''; return `<h3 class="sec${d === today() ? ' now' : ''}">${fmtDay(d)}${d === today() ? ' · 오늘' : ''} <span>${ss.length}개 수업</span></h3><div class="list">${ss.map(x => sessItem(d, x, plans, glogs)).join('')}</div>`; }).join('');
   app.innerHTML = `${segHtml()}
-  <div class="toolbar">
-    <button class="btn ghost icon" id="prev" aria-label="전날">‹</button>
-    <input type="date" id="bd" value="${d}" style="flex:1">
-    <button class="btn ghost icon" id="next" aria-label="다음 날">›</button>
-  </div>
-  <div class="sec-row"><h3 class="sec">${fmtDay(d)} 예약 <span>${total}명</span></h3><button class="btn sm" id="addB">+ 예약</button></div>
-  <p class="hint">반 명단으로 <b class="t-ink">${fmtDay(addDays(today(), HORIZON))}</b>까지 자동 예약돼 있어요. 빠지는 날만 '이번만 빠짐'을 누르세요. 수업 전날 저녁 8시에 알림톡이 나가요.</p>
-  ${cards.length ? cards.map(({ c, time, bs }) => {
-    const cap = c?.cap || 0, over = cap && bs.length > cap;
-    const skipped = c ? (c.skips || []).filter(k => k.startsWith(`${d}|${time}|`)) : [];
-    return `<div class="card slot"><div class="slot-h"><div class="grow"><span class="time">${time}</span><span class="sub">${c ? esc(c.name) : '개인 PT · 따로 넣은 예약'}</span></div>${c && cap ? `<span class="tag ${over ? 'red' : bs.length ? '' : 'gray'}">${bs.length}/${cap}명${over ? ' 초과' : ''}</span>` : ''}
-      <button class="btn ghost sm" data-addt="${time}" data-cls="${c ? c.id : ''}">+ 추가</button></div>
-      ${bs.sort((a, b) => a.name.localeCompare(b.name, 'ko')).map(b => row(b, c)).join('')}
-      ${skipped.map(k => `<div class="slot-r skipped"><div class="grow">${esc(k.split('|')[2])}<span class="sub">이번만 빠짐</span></div><button class="btn ghost sm" data-unskip="${esc(c.id + '|' + k)}">되돌리기</button></div>`).join('')}
-      ${!bs.length && !skipped.length ? '<div class="slot-r"><span class="sub">아직 아무도 없어요. 반 관리에서 명단을 넣어 두면 자동으로 채워져요.</span></div>' : ''}
-    </div>`; }).join('') : '<div class="empty">이날은 수업이 없어요.<br>+ 예약으로 개인 PT를 넣거나, 반 관리에서 시간표를 만들어 주세요.</div>'}`;
+  <div class="toolbar"><button class="btn ghost icon" id="pp" aria-label="지난주">‹</button><div class="wk-t">${fmtDay(wk)} 주${wk === weekStart(today()) ? ' <span class="tag">이번 주</span>' : ''}</div><button class="btn ghost icon" id="pn" aria-label="다음 주">›</button></div>
+  <p class="hint">수업을 누르면 명단·운동 계획·수업 기록을 한 곳에서 봐요. 명단은 반 관리대로 자동으로 채워지고, 빠지는 날만 고치면 돼요.</p>
+  ${dayHtml || '<div class="empty">이번 주는 수업이 없어요. 반 관리에서 시간표를 만들어 주세요.</div>'}
+  <h3 class="sec">개인 PT 이번 주 계획 <span>${ptDone.length}/${ptNames.length}명</span></h3>
+  <div class="list">${ptNames.map(n => { const ps = plans.filter(x => x.member === n).sort((a, b) => (a.day || '9').localeCompare(b.day || '9')); return `<div class="item"><button class="who" data-np="${esc(n)}"><span class="nm">${esc(n)}${ps.length ? '' : '<span class="tag amber">아직 안 짬</span>'}</span><span class="meta">${ps.map(x => (x.day ? fmtDay(x.day) : '요일 미정') + (x.title ? ' ' + esc(x.title) : '') + (x.done ? ' ✓' : '')).join(' · ') || '이번 주 계획 없음'}</span></button><button class="btn ghost sm" data-np2="${esc(n)}">+ 계획</button></div>`; }).join('') || '<div class="item"><span class="sub">개인 PT 회원이 없어요</span></div>'}</div>`;
   bindSeg();
-  $('#bd').onchange = e => { state.bookDate = e.target.value || addDays(today(), 1); renderBook(); };
-  $('#prev').onclick = () => { state.bookDate = addDays(d, -1); renderBook(); };
-  $('#next').onclick = () => { state.bookDate = addDays(d, 1); renderBook(); };
-  $('#addB').onclick = () => addBooking(d, '', '');
-  app.querySelectorAll('[data-addt]').forEach(b => b.onclick = () => addBooking(d, b.dataset.addt, b.dataset.cls));
-  app.querySelectorAll('[data-delb]').forEach(b => b.onclick = () => delBooking(b.dataset.delb));
-  app.querySelectorAll('[data-skip]').forEach(b => b.onclick = () => skipBooking(b.dataset.skip));
-  app.querySelectorAll('[data-unskip]').forEach(b => b.onclick = () => { const [cid, ...k] = b.dataset.unskip.split('|'); unskip(cid, k.join('|')); });
+  $('#pp').onclick = () => { state.week = addDays(wk, -7); refresh(); };
+  $('#pn').onclick = () => { state.week = addDays(wk, 7); refresh(); };
+  app.querySelectorAll('[data-sess]').forEach(b => b.onclick = () => { const [d, ...k] = b.dataset.sess.split('|'); openSession(d, k.join('|')); });
+  app.querySelectorAll('[data-np2]').forEach(b => b.onclick = () => editPlan(b.dataset.np2, wk));
+  app.querySelectorAll('[data-np]').forEach(b => b.onclick = () => { const x = plans.find(y => y.member === b.dataset.np); editPlan(b.dataset.np, wk, x); });
+}
+// 수업 하나: 명단(출석·빠짐) + 운동 계획 + 수업 기록
+async function openSession(d, key){
+  const wk = weekStart(d);
+  const [plans, books, glogs, wq] = await Promise.all([loadWeekPlans(wk), weekBooks(wk), weekGroupLogs(wk), fb.getDocs(fb.query(fb.collection(db, 'workouts'), fb.where('date', '==', d)))]);
+  const s = sessionsOn(d, books).find(x => x.key === key) || { key, c: null, time: key.split('|')[1], bs: [] };
+  const c = s.c, g = c && c.kind !== 'pt', att = attendedSet(d), wrote = new Set(wq.docs.map(x => x.data().member));
+  const future = d > today(), past = d < today() || (d === today() && s.time <= nowHM());
+  const x = g ? groupPlanFor(plans, c.name, d, s.time) : null, gl = g ? groupLogFor(glogs, c.name, d, s.time) : null;
+  const skipped = c ? (c.skips || []).filter(k => k.startsWith(`${d}|${s.time}|`)) : [];
+  const byId = Object.fromEntries(state.passes.map(p => [p.id, p]));
+  const row = b => {
+    const p = byId[b.passId], here = att.has(b.name);
+    const st = future ? '' : here ? '<span class="tag">출석</span>' : past ? '<span class="tag red">안 옴</span>' : '<span class="tag gray">아직</span>';
+    const act = future ? (b.auto ? `<button class="btn line sm" data-skip="${b.id}">이번만 빠짐</button>` : `<button class="btn red sm" data-delb="${b.id}">취소</button>`)
+      : !here && d === today() && p ? `<button class="btn sm" data-sck="${p.id}">출석</button>` : '';
+    const ptBtns = !g ? `${here && !wrote.has(b.name) ? `<button class="btn sm" data-swk="${esc(b.name)}">운동 기록</button>` : ''}` : '';
+    return `<div class="item"><div class="who static"><span class="nm">${esc(b.name)}${st}${c && !b.auto ? '<span class="tag gray">이번만 추가</span>' : ''}${!g && wrote.has(b.name) ? '<span class="tag">기록 완료</span>' : ''}</span><span class="meta">${esc(p?.cls || b.cls || '')}${p && !p.phone ? ' · <b class="t-red">번호 없음</b>' : ''}${b.notified ? ' · 알림 발송됨' : ''}</span></div>${ptBtns}${act}</div>`;
+  };
+  const ptPlans = !g ? s.bs.map(b => ({ n: b.name, x: plans.find(y => y.member === b.name && y.day === d) || plans.find(y => y.member === b.name && !y.done) })) : [];
+  dialog(`
+    <div class="name">${fmtDay(d)} ${s.time} ${esc(c ? c.name : '개인 PT')}</div>
+    <p class="hint" style="margin-top:2px">${c ? esc(sessLbl(c)) + ' 반' + (c.cap ? ` · 정원 ${c.cap}명` : '') : '반에 묶이지 않은 예약'}</p>
+    <div class="sec-row"><div class="grow sec">명단 <span>${s.bs.length}명</span></div><button class="btn ghost sm" id="s_add">+ 이번만 추가</button></div>
+    <div class="list">${s.bs.map(row).join('') || '<div class="item"><span class="sub">아직 아무도 없어요</span></div>'}
+      ${skipped.map(k => `<div class="item skipped"><div class="who static"><span class="nm">${esc(k.split('|')[2])}<span class="tag gray">이번만 빠짐</span></span></div><button class="btn ghost sm" data-unskip="${esc(c.id + '|' + k)}">되돌리기</button></div>`).join('')}</div>
+    ${g ? `
+    <div class="sec-row"><div class="grow sec">운동 계획</div><button class="btn ghost sm" id="s_plan">${x ? '계획 수정' : '+ 계획 쓰기'}</button></div>
+    ${x ? `<div class="wk">${x.title ? `<div class="d"><span>${esc(x.title)}${x.time ? '' : ' <span class="t-mut">(모든 타임 공통)</span>'}</span></div>` : ''}<ul>${(x.items || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>` : '<p class="hint">아직 계획이 없어요. 계획 쓰기에서 지난 수업이나 다른 타임 계획을 불러올 수 있어요.</p>'}
+    <div class="sec-row"><div class="grow sec">수업 기록</div></div>
+    ${gl ? `<div class="wk hl"><div class="d"><span>기록 완료</span></div><ul>${(gl.items || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul>${gl.note ? `<p class="hint" style="margin:6px 0 0">${esc(gl.note)}</p>` : ''}</div>`
+      : future ? '<p class="hint">수업이 끝나면 여기서 기록을 써요.</p>' : `<button class="btn wide" id="s_done">수업 끝 · 기록 쓰기</button>`}`
+    : `
+    <div class="sec-row"><div class="grow sec">이번 주 개인 PT 계획</div></div>
+    <div class="list">${ptPlans.map(({ n, x }) => `<div class="item"><div class="who static"><span class="nm">${esc(n)}</span><span class="meta">${x ? (x.day ? fmtDay(x.day) + ' · ' : '') + esc(x.title || (x.items || []).slice(0, 2).join(', ')) : '아직 계획 없음'}</span></div><button class="btn ghost sm" data-spl="${esc(n)}">${x ? '수정' : '+ 계획'}</button></div>`).join('') || '<div class="item"><span class="sub">명단이 비어 있어요</span></div>'}</div>`}
+    <div class="acts"><span class="grow"></span><button class="btn" id="cl">닫기</button></div>`);
+  const again = () => openSession(d, key);
+  $('#cl').onclick = () => { closeDlg(); refresh(); };
+  $('#s_add').onclick = () => addBooking(d, s.time, c ? c.id : '');
+  document.querySelectorAll('#dlg [data-skip]').forEach(b => b.onclick = async () => { await skipBooking(b.dataset.skip); again(); });
+  document.querySelectorAll('#dlg [data-delb]').forEach(b => b.onclick = async () => { await delBooking(b.dataset.delb); again(); });
+  document.querySelectorAll('#dlg [data-unskip]').forEach(b => b.onclick = async () => { const [cid, ...k] = b.dataset.unskip.split('|'); await unskip(cid, k.join('|')); again(); });
+  document.querySelectorAll('#dlg [data-sck]').forEach(b => b.onclick = async () => { b.disabled = true; await checkIn(b.dataset.sck, d); if (!$('#dlg').open) again(); });
+  document.querySelectorAll('#dlg [data-swk]').forEach(b => b.onclick = () => writeWorkout(b.dataset.swk, d));
+  document.querySelectorAll('#dlg [data-spl]').forEach(b => b.onclick = () => { const it = ptPlans.find(y => y.n === b.dataset.spl); editPlan(it.n, wk, it.x || undefined); });
+  if ($('#s_plan')) $('#s_plan').onclick = () => {
+    if (x) return editPlan(null, wk, x, x.group, [d], x.time || '', plans);
+    const shared = plans.find(y => y.group === c.name && !y.time && (y.days || [y.day]).includes(d));
+    editPlan(null, wk, null, c.name, [d], s.time, plans, shared);
+  };
+  if ($('#s_done')) $('#s_done').onclick = () => groupDone(x, d, [d], s.time, c.name);
 }
 
 function addBooking(date, time, classId){
@@ -522,7 +610,7 @@ function addBooking(date, time, classId){
     });
     try { await batch.commit(); } catch(e) { $('#sv').disabled = false; return toast('예약하지 못했어요. 다시 해 주세요'); }
     state.books.push(...added);
-    closeDlg(); toast(added.length ? `${added.length}명 예약했어요` : '이미 예약돼 있어요'); renderBook();
+    closeDlg(); toast(added.length ? `${added.length}명 예약했어요` : '이미 예약돼 있어요'); refresh();
   };
 }
 
@@ -531,7 +619,7 @@ async function delBooking(id){
   if (!confirm(`${b.name}님 ${fmtDay(b.date)} ${b.time} 예약을 취소할까요?`)) return;
   await fb.deleteDoc(fb.doc(db, 'bookings', id));
   state.books = state.books.filter(x => x.id !== id);
-  toast('예약을 취소했어요'); renderBook();
+  toast('예약을 취소했어요'); refresh();
 }
 // 반 예약에서 이번 한 번만 빼기 (다음 주부터는 그대로)
 async function skipBooking(id){
@@ -544,13 +632,13 @@ async function skipBooking(id){
   batch.delete(fb.doc(db, 'bookings', id));
   await batch.commit();
   state.books = state.books.filter(x => x.id !== id);
-  toast(`${b.name}님 이번만 빠짐`); renderBook();
+  toast(`${b.name}님 이번만 빠짐`); refresh();
 }
 async function unskip(classId, key){
   const c = state.classes.find(x => x.id === classId); if (!c) return;
   c.skips = (c.skips || []).filter(k => k !== key);
   await fb.updateDoc(fb.doc(db, 'classes', c.id), { skips: c.skips });
-  await syncAuto(); toast('다시 예약했어요'); renderBook();
+  await syncAuto(); toast('다시 예약했어요'); refresh();
 }
 
 /* ---------- 반 관리 ---------- */
@@ -616,7 +704,7 @@ async function editClass(c){
     if (!confirm(`${c.name} (${sessLbl(c)}) 반을 없앨까요?\n내일부터의 자동 예약도 지워져요. 지난 기록과 계획은 남아요.`)) return;
     await fb.updateDoc(fb.doc(db, 'classes', c.id), { active: false });
     c.active = false; const r = await syncAuto();
-    closeDlg(); toast(`반을 없앴어요 · 예약 ${r.removed}개 지움`); renderBook();
+    closeDlg(); toast(`반을 없앴어요 · 예약 ${r.removed}개 지움`); refresh();
   };
   $('#sv').onclick = async () => {
     if ($('#sv').disabled) return;
@@ -635,7 +723,7 @@ async function editClass(c){
       if (isNew) { const ref = await fb.addDoc(fb.collection(db, 'classes'), { ...d, active: true, createdAt: fb.serverTimestamp() }); state.classes.push({ id: ref.id, ...d, active: true }); }
       else { await fb.updateDoc(fb.doc(db, 'classes', c.id), d); Object.assign(c, d); }
       const r = await syncAuto();
-      closeDlg(); toast(`저장했어요${r.added || r.removed ? ` · 예약 ${r.added ? '+' + r.added : ''}${r.added && r.removed ? ' / ' : ''}${r.removed ? '−' + r.removed : ''}` : ''}`); renderBook();
+      closeDlg(); toast(`저장했어요${r.added || r.removed ? ` · 예약 ${r.added ? '+' + r.added : ''}${r.added && r.removed ? ' / ' : ''}${r.removed ? '−' + r.removed : ''}` : ''}`); refresh();
     } catch(e) { $('#sv').disabled = false; toast('저장하지 못했어요. 다시 해 주세요'); }
   };
 }
@@ -676,40 +764,77 @@ function bookedTime(passId){
   return b[0] || '';
 }
 
-function renderCheck(){
+// 오늘: 할 일 + 오늘 수업 + 회원 출석
+async function renderToday(){
+  const d = today(), byId = Object.fromEntries(state.passes.map(p => [p.id, p]));
+  const [wq, gq] = await Promise.all([fb.getDocs(fb.query(fb.collection(db, 'workouts'), fb.where('date', '==', d))), fb.getDocs(fb.query(fb.collection(db, 'groupWorkouts'), fb.where('date', '==', d)))]);
+  if (state.tab !== 'today') return;
+  const wrote = new Set(wq.docs.map(x => x.data().member)), glogs = gq.docs.map(x => x.data());
+  const att = state.logs.filter(l => l.date === d), ss = sessionsOn(d), now = nowHM();
+  const act = state.passes.filter(p => !p.archived);
+  const todos = [];
+  [...new Set(att.filter(l => l.kind ? l.kind === '개인' : isPT(byId[l.passId] || {})).map(l => byId[l.passId]?.name || l.name))].filter(n => !wrote.has(n))
+    .forEach(n => todos.push({ c: 'amber', t: `${n}님 운동 기록`, s: '개인 PT 출석 · 기록 안 씀', b: '쓰기', a: `wk|${n}` }));
+  ss.filter(x => x.c && x.c.kind !== 'pt' && x.bs.length && x.time <= now && !groupLogFor(glogs, x.c.name, d, x.time))
+    .forEach(x => todos.push({ c: 'amber', t: `${x.time} ${x.c.name} 수업 기록`, s: `수업 끝 · 기록 안 씀 · ${x.bs.length}명`, b: '기록', a: `ss|${x.key}` }));
+  act.forEach(p => { const [st] = status(p); if (['재등록 안내', '충전 안내', '곧 소진'].includes(st)) todos.push({ c: st === '곧 소진' ? 'amber' : 'red', t: `${p.name}님 ${st === '곧 소진' ? '재등록 안내' : st}`, s: isMoney(p) ? `잔액 ${won(moneyLeft(p))}` : `남은 ${left(p)}회 / ${p.total}회`, b: '보기', a: `p|${p.id}` }); });
+  act.forEach(p => { if (status(p)[0] === '연락 필요') todos.push({ c: 'amber', t: `${p.name}님 연락 필요`, s: `${daysSince(p.lastDate)}일째 안 오셨어요`, b: '보기', a: `p|${p.id}` }); });
+  [...new Map(act.filter(p => !p.phone).map(p => [p.name, p])).values()].forEach(p => todos.push({ c: 'gray', t: `${p.name}님 휴대폰 번호 없음`, s: '알림톡을 못 받아요', b: '넣기', a: `ph|${p.id}` }));
+  const showAll = state.todoAll || todos.length <= 6;
+  app.innerHTML = `
+  <div class="today-h"><div class="td-date">${fmtDay(d)}</div><div class="td-sum"><span><b class="num">${new Set(att.map(l => l.passId)).size}</b>명 출석</span><span><b class="num">${ss.length}</b>개 수업</span><span><b class="num">${todos.length}</b>개 할 일</span></div></div>
+  <h3 class="sec">할 일 <span>${todos.length}</span></h3>
+  ${todos.length ? `<div class="list">${(showAll ? todos : todos.slice(0, 6)).map(x => `<div class="item todo ${x.c}"><div class="who static"><span class="nm">${esc(x.t)}</span><span class="meta">${esc(x.s)}</span></div><button class="btn ${x.b === '보기' || x.b === '넣기' ? 'ghost ' : ''}sm" data-todo="${esc(x.a)}">${x.b}</button></div>`).join('')}
+    ${showAll ? '' : `<button class="more-row" id="tdAll">할 일 ${todos.length - 6}개 더 보기</button>`}</div>` : '<div class="empty">오늘 할 일을 다 했어요</div>'}
+  <h3 class="sec">오늘 수업 <span>${ss.length}</span></h3>
+  ${ss.length ? `<div class="list">${ss.map(x => sessItem(d, x, [], glogs)).join('')}</div>` : '<div class="empty">오늘은 수업이 없어요</div>'}
+  <h3 class="sec">회원 출석</h3>
+  <div id="ckArea"></div>`;
+  app.querySelectorAll('[data-sess]').forEach(b => b.onclick = () => { const [dd, ...k] = b.dataset.sess.split('|'); openSession(dd, k.join('|')); });
+  app.querySelectorAll('[data-todo]').forEach(b => b.onclick = () => {
+    const [k, ...v] = b.dataset.todo.split('|'), val = v.join('|');
+    if (k === 'wk') writeWorkout(val, d);
+    else if (k === 'ss') openSession(d, val);
+    else if (k === 'p') openPass(val);
+    else if (k === 'ph') editPass(state.passes.find(p => p.id === val));
+  });
+  if ($('#tdAll')) $('#tdAll').onclick = () => { state.todoAll = true; refresh(); };
+  renderCheckArea();
+}
+function renderCheckArea(){
+  const el = $('#ckArea'); if (!el) return;
   const ckd = ckDay(), isToday = ckd === today();
   const done = new Set(state.logs.filter(l => l.date === ckd).map(l => l.passId));
-  const byId = Object.fromEntries(state.passes.map(p => [p.id, p]));
-  const selfLogs = state.logs.filter(l => ['kiosk', 'qr', 'form'].includes(l.via) && l.date === ckd && (l.kind ? l.kind === '개인' : isPT(byId[l.passId] || {})));
-  const list = filtered();
-  app.innerHTML = `
+  el.innerHTML = `
   <div class="toolbar sticky"><input id="q" type="search" placeholder="이름 검색" value="${esc(state.q)}" autocomplete="off"><input id="ckDate" type="date" value="${ckd}" aria-label="출석 날짜"></div>
   <div class="chips">${['전체', '1:1', '2:1', '그룹'].map(f => `<button data-f="${f}" class="${state.filter === f ? 'on' : ''}">${f}</button>`).join('')}</div>
   <div class="sumline"><span><b>${done.size}</b>명 ${isToday ? '오늘' : esc(fmtDay(ckd))} 출석</span><span class="grow">${isToday ? '이름을 누르면 상세 기록' : '<button class="btn line sm" id="toToday">오늘로 돌아가기</button>'}</span></div>
   ${isToday ? '' : `<div class="card attn"><div class="attn-t">${esc(fmtDay(ckd))} 날짜로 출석을 찍고 있어요</div><p class="hint" style="margin-bottom:0">지난 출석을 빠뜨렸을 때만 쓰세요.</p></div>`}
-  ${selfLogs.length ? `<div class="card attn"><div class="attn-t">회원이 직접 출석한 개인 PT</div><p class="hint" style="margin:2px 0 0">이름을 누르면 운동 기록을 써요</p><div class="chipset">${selfLogs.map(l => `<button data-sw="${esc(l.name)}">${esc(l.name)}</button>`).join('')}</div></div>` : ''}
-  ${passList(list, true)}`;
-  app.querySelectorAll('[data-sw]').forEach(b => b.onclick = () => writeWorkout(b.dataset.sw, ckd));
-  $('#q').oninput = e => { state.q = e.target.value; const pos = e.target.selectionStart; renderCheck(); const n = $('#q'); n.focus(); n.setSelectionRange(pos, pos); };
-  app.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { state.filter = b.dataset.f; renderCheck(); });
-  $('#ckDate').onchange = e => { state.ckDate = e.target.value && e.target.value !== today() ? e.target.value : null; renderCheck(); };
-  if ($('#toToday')) $('#toToday').onclick = () => { state.ckDate = null; renderCheck(); };
+  <div id="ckList">${passList(filtered(), true)}</div>`;
+  // 검색은 목록만 다시 그려서 입력칸이 그대로
+  $('#q').oninput = e => { state.q = e.target.value; $('#ckList').innerHTML = passList(filtered(), true); bindList(); };
+  el.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { state.filter = b.dataset.f; renderCheckArea(); });
+  $('#ckDate').onchange = e => { state.ckDate = e.target.value && e.target.value !== today() ? e.target.value : null; renderCheckArea(); };
+  if ($('#toToday')) $('#toToday').onclick = () => { state.ckDate = null; renderCheckArea(); };
   bindList();
 }
 
+const memSeg = () => `<div class="seg" role="tablist"><button data-mv="list" class="${state.memView === 'list' ? 'on' : ''}">회원</button><button data-mv="log" class="${state.memView === 'log' ? 'on' : ''}">출석 기록</button></div>`;
+const bindMemSeg = () => app.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => { state.memView = b.dataset.mv; render(); });
 function renderMembers(){
+  if (state.memView === 'log') return renderLog();
   const act = state.passes.filter(p => !p.archived);
   const need = act.filter(p => !['정상', '금액권'].includes(status(p)[0]));
   const gone = state.passes.filter(p => p.archived);
   const rank = p => isMoney(p) ? moneyLeft(p) / Math.max(p.priceP || 1, 1) : left(p);
-  app.innerHTML = `
+  app.innerHTML = `${memSeg()}
   <div class="sec-row"><h3 class="sec">챙겨야 할 회원 <span>${need.length}명</span></h3><button class="btn sm" id="add">+ 새 이용권</button></div>
   ${need.length ? passList(need.sort((a, b) => rank(a) - rank(b)), false) : '<div class="empty">지금 챙길 회원이 없어요</div>'}
   <h3 class="sec">전체 이용권 <span>${act.length}개</span></h3>
   ${passList(act.sort((a, b) => a.name.localeCompare(b.name, 'ko')), false)}
   ${gone.length ? `<details class="more-list"><summary>만료된 이용권 ${gone.length}개</summary>${passList(gone, false)}</details>` : ''}`;
   $('#add').onclick = () => editPass(null);
-  bindList();
+  bindList(); bindMemSeg();
 }
 
 const VIA = { kiosk: '태블릿', qr: 'QR', form: '구글폼' };
@@ -717,10 +842,11 @@ function renderLog(){
   const byId = Object.fromEntries(state.passes.map(p => [p.id, p]));
   const groups = {};
   state.logs.forEach(l => (groups[l.date] = groups[l.date] || []).push(l));
-  app.innerHTML = Object.keys(groups).length ? `<p class="hint" style="margin-top:0">최근 120일 동안 이 앱·태블릿·QR로 찍힌 출석이에요. 잘못 찍었으면 취소하세요.</p>` + Object.entries(groups).map(([d, ls]) => `
+  app.innerHTML = memSeg() + (Object.keys(groups).length ? `<p class="hint" style="margin-top:0">최근 120일 동안 이 앱·태블릿·QR로 찍힌 출석이에요. 잘못 찍었으면 취소하세요.</p>` + Object.entries(groups).map(([d, ls]) => `
     <h3 class="sec">${esc(dayLbl(d))}${d === today() ? ' · 오늘' : ''} <span>${ls.length}명</span></h3>
     <div class="list">${ls.map(l => `<div class="item"><div class="who static"><span class="nm">${esc(byId[l.passId]?.name || l.name)}${VIA[l.via] ? `<span class="tag gray">${VIA[l.via]}</span>` : ''}</span><span class="meta">${l.amount ? esc(l.kind) + ' · −' + won(l.amount) : esc(byId[l.passId]?.cls || '')}</span></div><button class="btn red sm" data-undo="${l.id}">취소</button></div>`).join('')}</div>`).join('')
-    : `<div class="empty">아직 이 앱에서 찍은 출석이 없어요.<br>기존 기록은 '사용' 횟수에 합쳐져 있어요.</div>`;
+    : `<div class="empty">아직 이 앱에서 찍은 출석이 없어요.<br>기존 기록은 '사용' 횟수에 합쳐져 있어요.</div>`);
+  bindMemSeg();
   app.querySelectorAll('[data-undo]').forEach(b => b.onclick = () => undo(b.dataset.undo));
 }
 
@@ -802,7 +928,7 @@ async function saveCheckIn(p, date){
   p.usedAfter = (p.usedAfter || 0) + 1; p.lastDate = newLast;
   state.logs.unshift({ id: ref.id, passId, name: p.name, date });
   toast(`${p.name}님 출석 · 남은 ${left(p)}회`);
-  render();
+  refresh();
 }
 
 function moneyCheckIn(p, date){
@@ -832,7 +958,7 @@ function moneyCheckIn(p, date){
       p.spent = (p.spent || 0) + amount; p.lastDate = newLast;
       state.logs.unshift({ id: ref.id, ...log });
     } finally { busyIds.delete(p.id); }
-    closeDlg(); toast(`${p.name}님 ${kind} 출석 · 잔액 ${won(moneyLeft(p))}`); render();
+    closeDlg(); toast(`${p.name}님 ${kind} 출석 · 잔액 ${won(moneyLeft(p))}`); refresh();
     if (kind === '개인') writeWorkout(p.name, date);
   });
 }
@@ -892,7 +1018,7 @@ async function undo(logId){
   if (p && l.amount) { p.spent = (p.spent || 0) - l.amount; p.lastDate = newLast; }
   else if (p) { p.usedAfter = (p.usedAfter || 0) - 1; p.lastDate = newLast; }
   state.logs = state.logs.filter(x => x.id !== logId);
-  toast('취소했어요'); render();
+  toast('취소했어요'); refresh();
 }
 
 /* ---------- 운동 기록 ---------- */
@@ -1006,65 +1132,28 @@ async function loadGroupLogs(group){
   const snap = await fb.getDocs(fb.query(fb.collection(db, 'groupWorkouts'), fb.where('group', '==', group)));
   return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.date.localeCompare(a.date));
 }
-function weekGroupClasses(wk){
-  const out = [];
-  for (let i = 0; i < 7; i++) {
-    const day = addDays(wk, i);
-    // 요일·타임마다 카드 하나 (다른 요일·타임 계획은 편집 창에서 불러오기)
-    classSlotsOn(day).filter(x => x.c.kind !== 'pt').forEach(({ c, time }) => out.push({ group: c.name, day, days: [day], time, times: [time] }));
-  }
-  return out;
-}
 const fmtDays = ds => ds.map(fmtDay).join(' · ');
 const shortWd = d => WD[wdOf(d)];
-async function renderPlan(){
-  const wk = state.planWeek || (state.planWeek = weekStart(today()));
-  const snap = await fb.getDocs(fb.query(fb.collection(db, 'plans'), fb.where('week', '==', wk)));
-  const plans = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  const names = [...new Set(state.passes.filter(p => !p.archived && (isPT(p) || isMoney(p))).map(p => p.name))].sort((a, b) => a.localeCompare(b, 'ko'));
-  const todo = names.filter(n => !plans.some(x => x.member === n));
-  const gcs = weekGroupClasses(wk);
-  const slotPlan = g => plans.find(y => y.group === g.group && y.time === g.time && g.days.includes(y.day)) || plans.find(y => y.group === g.group && !y.time && (y.days || [y.day]).some(d => g.days.includes(d)));
-  const gHtml = gcs.map(g => { const x = slotPlan(g); const shared = x && !x.time; const dd = x ? (x.doneDays || (x.done ? [x.day] : [])) : []; const isDone = d => shared ? dd.includes(d + ' ' + g.time) : dd.includes(d) || dd.includes(d + ' ' + g.time); return `
-    <div class="card"><div class="row"><div class="grow"><span class="name">${esc(fmtDays(g.days))} ${esc(g.time)}</span> <span class="sub">${esc(g.group)}</span></div>
-      ${x ? g.days.map(d => isDone(d) ? `<span class="tag">${g.days.length > 1 ? shortWd(d) + ' ' : ''}기록 완료</span>` : d > today() ? '' : `<button class="btn sm" data-gd="${x.id}|${d}|${g.time}">${g.days.length > 1 ? shortWd(d) + ' ' : ''}수업 끝 · 기록</button>`).join('') : ''}
-      ${shared ? '' : `<button class="btn ghost sm" data-${x ? 'ep' : 'gp'}="${x ? x.id : esc(g.group + '|' + g.days.join(',') + '|' + g.time)}">${x ? '수정' : '+ 계획'}</button>`}</div>
-    ${x ? `<div class="wk">${x.title || shared ? `<div class="d"><span>${esc(x.title || '')}${shared ? ' <span class="t-mut">(모든 타임 공통)</span>' : ''}</span>${shared ? `<button class="btn ghost sm" data-gp="${esc(g.group + '|' + g.days.join(',') + '|' + g.time)}">이 타임만 따로</button>` : ''}</div>` : ''}<ul>${(x.items || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>` : '<p class="hint">아직 계획 없음</p>'}
-    </div>`; }).join('');
-  app.innerHTML = `
-  <div class="toolbar"><button class="btn ghost icon" id="pp" aria-label="지난주">‹</button><div class="wk-t">${fmtDay(wk)} 주${wk === weekStart(today()) ? ' <span class="tag">이번 주</span>' : ''}</div><button class="btn ghost icon" id="pn" aria-label="다음 주">›</button></div>
-  <p class="hint">월요일에 이번 주 운동을 짜 두세요. 개인 PT는 출석할 때 자동으로 불러오고, 그룹 수업은 수업 날 '수업 끝 · 기록'을 누르면 돼요. ${todo.length ? `<b class="t-amber">개인 PT 아직 안 짠 회원 ${todo.length}명</b>` : '<b class="t-g">모두 짰어요</b>'}</p>
-  <h3 class="sec">그룹 수업 <span>${gcs.length}</span></h3>
-  ${gHtml}
-  <h3 class="sec">개인 PT <span>${names.length}명</span></h3>
-  ${names.map(n => { const ps = plans.filter(x => x.member === n).sort((a, b) => (a.day || '9').localeCompare(b.day || '9')); return `
-    <div class="card"><div class="row"><div class="grow name">${esc(n)}</div><button class="btn sm" data-np="${esc(n)}">+ 계획</button></div>
-    ${ps.map(x => `<div class="wk"><div class="d"><span>${x.day ? esc(fmtDay(x.day)) : '요일 미정'}${x.title ? ' · ' + esc(x.title) : ''}${x.done ? ' · <span class="t-mut">완료</span>' : ''}</span><button class="btn ghost sm" data-ep="${x.id}">수정</button></div><ul>${(x.items || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul>${x.homework ? `<div class="hw">숙제 · ${esc(x.homework)}</div>` : ''}</div>`).join('') || '<p class="hint">아직 계획 없음</p>'}
-    </div>`; }).join('')}`;
-  $('#pp').onclick = () => { state.planWeek = addDays(wk, -7); renderPlan(); };
-  $('#pn').onclick = () => { state.planWeek = addDays(wk, 7); renderPlan(); };
-  app.querySelectorAll('[data-np]').forEach(b => b.onclick = () => editPlan(b.dataset.np, wk));
-  const slotOf = (grp, day, t) => gcs.find(g => g.group === grp && g.days.includes(day) && (!t || g.time === t)) || { days: [day], time: t || '' };
-  app.querySelectorAll('[data-ep]').forEach(b => b.onclick = () => { const x = plans.find(y => y.id === b.dataset.ep); if (!x.group) return editPlan(x.member, wk, x); const g = slotOf(x.group, x.day, x.time); editPlan(null, wk, x, x.group, g.days, x.time || '', plans); });
-  app.querySelectorAll('[data-gp]').forEach(b => b.onclick = () => { const [g, d, t] = b.dataset.gp.split('|'); const base = slotPlan({ group: g, time: t, days: d.split(',') }); editPlan(null, wk, null, g, d.split(','), t, plans, base); });
-  app.querySelectorAll('[data-gd]').forEach(b => b.onclick = () => { const [id, d, t] = b.dataset.gd.split('|'); const x = plans.find(y => y.id === id); groupDone(x, d, slotOf(x.group, d, t).days, t); });
-}
-function groupDone(x, day, days, time){
-  day = day || x.day; days = days || [x.day]; time = time || x.time || '';
-  dialog(`<div class="name">${esc(fmtDay(day))} ${esc(time)} ${esc(x.group)} 수업 기록</div>
-    <p class="hint">계획대로 했으면 그대로 저장, 바뀐 건 고쳐서 저장하세요.</p>
-    <label>한 운동</label><textarea id="g_i" rows="7">${esc((x.items || []).join('\n'))}</textarea>
+function groupDone(x, day, days, time, group){
+  const grp = x ? x.group : group;
+  day = day || x.day; days = days || [x?.day]; time = time || x?.time || '';
+  dialog(`<div class="name">${esc(fmtDay(day))} ${esc(time)} ${esc(grp)} 수업 기록</div>
+    <p class="hint">${x ? '계획대로 했으면 그대로 저장, 바뀐 건 고쳐서 저장하세요.' : '오늘 한 운동을 한 줄에 하나씩 적어 주세요.'}</p>
+    <label>한 운동</label><textarea id="g_i" rows="7">${esc((x?.items || []).join('\n'))}</textarea>
     <label>메모 (분위기·다음에 바꿀 점)</label><input id="g_n">
     <div class="acts"><span class="grow"></span><button class="btn ghost" id="cn">닫기</button><button class="btn" id="sv">저장</button></div>`);
   $('#cn').onclick = closeDlg;
   $('#sv').onclick = async () => {
     const items = $('#g_i').value.split('\n').map(t => t.trim()).filter(Boolean);
-    await fb.addDoc(fb.collection(db, 'groupWorkouts'), { group: x.group, date: day, time, items, note: $('#g_n').value.trim(), createdAt: fb.serverTimestamp() });
+    if (!items.length) return toast('운동을 한 줄 이상 적어 주세요');
+    $('#sv').disabled = true;
+    await fb.addDoc(fb.collection(db, 'groupWorkouts'), { group: grp, date: day, time, items, note: $('#g_n').value.trim(), createdAt: fb.serverTimestamp() });
+    if (!x) { closeDlg(); toast('그룹 수업 기록을 저장했어요'); return refresh(); }
     const key = x.time ? day : day + ' ' + time;   // 예전 공통 계획이면 타임별로 완료 표시
     const doneDays = [...new Set([...(x.doneDays || (x.done ? [x.day] : [])), key])];
     const allDone = x.time ? days.every(d => doneDays.includes(d)) : false;
     await fb.updateDoc(fb.doc(db, 'plans', x.id), days.length > 1 || !x.time ? { doneDays, done: allDone, doneDate: day } : { done: true, doneDate: day, items, doneDays });
-    closeDlg(); toast('그룹 수업 기록을 저장했어요'); renderPlan();
+    closeDlg(); toast('그룹 수업 기록을 저장했어요'); refresh();
   };
 }
 async function editPlan(member, wk, ex, group, fixedDays, time, weekPlans, base){
@@ -1105,14 +1194,14 @@ async function editPlan(member, wk, ex, group, fixedDays, time, weekPlans, base)
   document.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => add(b.dataset.mv));
   document.querySelectorAll('[data-sib]').forEach(b => b.onclick = () => { const y = sibs.find(z => z.id === b.dataset.sib); ta.value = (y.items || []).join('\n'); if (!$('#p_t').value) $('#p_t').value = y.title || ''; toast(shortWd(y.day) + ' ' + (y.time || '') + ' 계획을 불러왔어요. 바꿀 것만 고치세요'); });
   $('#cn').onclick = closeDlg;
-  if ($('#p_del')) $('#p_del').onclick = async () => { if (!confirm('이 계획을 지울까요?')) return; await fb.deleteDoc(fb.doc(db, 'plans', ex.id)); closeDlg(); renderPlan(); };
+  if ($('#p_del')) $('#p_del').onclick = async () => { if (!confirm('이 계획을 지울까요?')) return; await fb.deleteDoc(fb.doc(db, 'plans', ex.id)); closeDlg(); refresh(); };
   $('#sv').onclick = async () => {
     const items = ta.value.split('\n').map(t => t.trim()).filter(Boolean);
     if (!items.length) return toast('운동을 한 줄 이상 적어 주세요');
     const d = { member: member || '', group: group || '', week: wk, day: group ? fixedDay : $('#p_d').value, ...(group ? { days: fixedDays, time: ex ? (ex.time || '') : time } : {}), title: $('#p_t').value.trim(), items, homework: $('#p_h').value.trim() };
     if (ex) await fb.updateDoc(fb.doc(db, 'plans', ex.id), d);
     else await fb.addDoc(fb.collection(db, 'plans'), { ...d, done: false, createdAt: fb.serverTimestamp() });
-    closeDlg(); toast('계획을 저장했어요'); if (state.tab === 'plan') renderPlan();
+    closeDlg(); toast('계획을 저장했어요'); refresh();
   };
 }
 
@@ -1164,7 +1253,7 @@ async function openPass(id){
     await fb.setDoc(fb.doc(db, 'profiles', p.name), { goal: g.trim() }, { merge: true }); toast('목표를 저장했어요'); openPass(p.id);
   };
   $('#rn').onclick = () => editPass({ name: p.name, cls: p.cls, phone: p.phone || '', kind: p.kind || '', priceP: p.priceP, priceG: p.priceG, _renew: p.id });
-  $('#ar').onclick = async () => { await fb.updateDoc(fb.doc(db, 'passes', id), { archived: !p.archived }); p.archived = !p.archived; closeDlg(); render(); };
+  $('#ar').onclick = async () => { await fb.updateDoc(fb.doc(db, 'passes', id), { archived: !p.archived }); p.archived = !p.archived; closeDlg(); refresh(); };
 }
 
 function editPass(p){
@@ -1211,7 +1300,7 @@ function editPass(p){
       await fb.updateDoc(fb.doc(db, 'passes', p.id), d);
       Object.assign(p, d);
     }
-    closeDlg(); toast('저장했어요'); render();
+    closeDlg(); toast('저장했어요'); refresh();
   };
 }
 
