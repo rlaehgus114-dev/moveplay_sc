@@ -144,6 +144,23 @@ button.who:hover .nm{color:var(--g)}
 .btn.file input{position:absolute;inset:0;opacity:0;cursor:pointer;min-height:0}
 ul.steps{padding-left:18px;margin-top:0}ul.steps li{margin:2px 0}
 .card>:last-child{margin-bottom:0}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--sunk);border-radius:12px;padding:4px;margin-bottom:14px}
+.seg button{border:0;background:none;border-radius:9px;min-height:38px;font-size:14px;font-weight:800;color:var(--mut);cursor:pointer}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.seg .num{font-size:12px;margin-left:2px}
+.slot-r.skipped{background:var(--sunk)}
+.slot-r.skipped .grow{color:var(--mut);text-decoration:line-through;text-decoration-color:var(--line)}
+.slot-r.skipped .sub{text-decoration:none;display:inline-block}
+.card.cls .sub{margin-top:2px}
+.roster{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.roster span{background:var(--sunk);border-radius:99px;padding:5px 11px;font-size:14px;font-weight:700}
+.roster span.warn{background:var(--red2);color:var(--red)}
+.roster small{font-weight:600;font-size:11px;opacity:.85}
+.sess{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--line)}
+.sess input[type=time]{width:auto;flex:1;min-width:110px;font-family:var(--f-mono)}
+.wds{display:flex;gap:4px;flex-wrap:wrap}
+.wds button{width:36px;height:36px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);color:var(--mut);font-weight:800;font-size:14px;cursor:pointer}
+.wds button.on{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
 details.more-list{margin-top:18px}
 details.more-list summary{cursor:pointer;font-size:14px;font-weight:700;color:var(--mut);padding:8px 4px;list-style:none}
 details.more-list summary::before{content:"＋ "}
@@ -232,14 +249,18 @@ const addDays = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d
 const WD = ['일', '월', '화', '수', '목', '금', '토'];
 const wdOf = s => new Date(s + 'T00:00:00Z').getUTCDay();
 const fmtDay = s => `${+s.slice(5, 7)}/${+s.slice(8)}(${WD[wdOf(s)]})`;
-// 그룹 수업 시간표 (요일 번호: 0=일 ~ 6=토)
-const GROUP_SLOTS = {
-  2: [['10:00', '케틀벨 그룹 PT']],
-  3: [['18:00', 'Move ON'], ['19:00', 'Move ON'], ['20:00', 'Move ON']],
-  5: [['10:00', '케틀벨 그룹 PT']],
-  6: [['10:00', '스윙·겟업'], ['11:00', 'Move ON'], ['12:00', 'Move ON']]
-};
-const GROUP_CAP = 6;  // 그룹 수업 정원 (넘으면 경고만)
+// 반이 하나도 없을 때 처음 한 번 만드는 기본 시간표 (요일 번호: 0=일 ~ 6=토)
+// 이후 시간표·정원·명단은 앱의 예약 → 반 관리에서 바꿔요
+const SEED_CLASSES = [
+  { id: 'kettlebell', name: '케틀벨 그룹 PT', kind: 'group', cap: 6, sessions: [{ wd: 2, time: '10:00' }, { wd: 5, time: '10:00' }] },
+  { id: 'moveon-wed18', name: 'Move ON', kind: 'group', cap: 6, sessions: [{ wd: 3, time: '18:00' }] },
+  { id: 'moveon-wed19', name: 'Move ON', kind: 'group', cap: 6, sessions: [{ wd: 3, time: '19:00' }] },
+  { id: 'moveon-wed20', name: 'Move ON', kind: 'group', cap: 6, sessions: [{ wd: 3, time: '20:00' }] },
+  { id: 'swing-sat10', name: '스윙·겟업', kind: 'group', cap: 6, sessions: [{ wd: 6, time: '10:00' }] },
+  { id: 'moveon-sat11', name: 'Move ON', kind: 'group', cap: 6, sessions: [{ wd: 6, time: '11:00' }] },
+  { id: 'moveon-sat12', name: 'Move ON', kind: 'group', cap: 6, sessions: [{ wd: 6, time: '12:00' }] },
+];
+const HORIZON = 28;  // 반 명단으로 며칠 앞까지 예약을 채울지
 function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('on'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'),2200); }
 
 /* ---------- 1. Firebase 설정 (이 기기 브라우저에만 저장) ---------- */
@@ -259,7 +280,7 @@ boot(cfg).catch(e => { app.innerHTML = `<div class="card"><div class="name">시�
 window.addEventListener('unhandledrejection', e => { console.error(e.reason); toast('저장하지 못했어요. 인터넷 연결을 확인하고 다시 해 주세요'); });
 
 /* ---------- 2. 시작 ---------- */
-let fb, db, auth, state = { passes: [], logs: [], books: [], tab: 'check', filter: '전체', q: '', bookDate: null, ckDate: null };
+let fb, db, auth, state = { passes: [], logs: [], books: [], classes: [], bookView: 'day', tab: 'check', filter: '전체', q: '', bookDate: null, ckDate: null };
 const ckDay = () => state.ckDate || today();
 const dayLbl = s => /^\d{4}-\d\d-\d\d$/.test(s || '') ? fmtDay(s) : String(s || '').slice(5);
 
@@ -289,6 +310,8 @@ function loginScreen(){
 }
 
 async function loadAll(){
+  const cs = await fb.getDocs(fb.collection(db, 'classes'));
+  state.classes = cs.docs.map(d => ({ id: d.id, ...d.data() }));
   const ps = await fb.getDocs(fb.collection(db, 'passes'));
   state.passes = ps.docs.map(d => ({ id: d.id, ...d.data() }));
   for (const p of state.passes) {
@@ -301,6 +324,8 @@ async function loadAll(){
   state.logs = ls.docs.map(d => ({ id: d.id, ...d.data() }));
   const bs = await fb.getDocs(fb.query(fb.collection(db, 'bookings'), fb.where('date', '>=', addDays(today(), -7))));
   state.books = bs.docs.map(d => ({ id: d.id, ...d.data() }));
+  if (!state.classes.length) await seedClasses();
+  await syncAuto();
   state.loadedAt = Date.now();
 }
 // 다른 기기(센터 태블릿)에서 찍힌 출석도 보이도록, 앱으로 돌아오면 새로 불러오기
@@ -346,46 +371,138 @@ document.querySelectorAll('#nav button').forEach(b => b.onclick = async () => {
 const TITLES = { check: '출석', book: '예약', plan: '주간 계획', members: '회원', log: '출석 기록', more: '설정' };
 function render(){ $('#pgT').textContent = TITLES[state.tab]; document.title = TITLES[state.tab] + ' · 무플 관리자'; ({ check: renderCheck, book: renderBook, plan: renderPlan, members: renderMembers, log: renderLog, more: renderMore })[state.tab](); window.scrollTo(0, 0); }
 
+/* ---------- 반(정기 수업)과 자동 예약 ----------
+   반에 회원을 한 번 넣어 두면 앱을 열 때마다 HORIZON일 앞까지 예약(bookings)을 채워요.
+   자동 예약은 auto: true, classId 가 붙고 문서 id가 정해져 있어서(a_반_날짜_시간_이름) 여러 기기에서 열어도 겹치지 않아요.
+   빠지는 날은 반의 skips 에 적어 두고 그 예약만 지워요. 알림톡 스크립트는 예전처럼 bookings 만 읽으면 돼요. */
+const actClasses = () => state.classes.filter(c => c.active !== false);
+const skipKey = (date, time, name) => `${date}|${time}|${name}`;
+const autoId = (c, date, time, name) => `a_${c.id}_${date}_${time.replace(':', '')}_${name}`;
+function classSlotsOn(date){
+  const wd = wdOf(date);
+  return actClasses().flatMap(c => (c.sessions || []).filter(s => s.wd === wd).map(s => ({ c, time: s.time })))
+    .sort((a, b) => a.time.localeCompare(b.time) || a.c.name.localeCompare(b.c.name, 'ko'));
+}
+// 화·금 10:00 처럼 보여 주기
+function sessLbl(c){
+  const byT = {};
+  (c.sessions || []).forEach(s => (byT[s.time] = byT[s.time] || []).push(s.wd));
+  return Object.entries(byT).sort().map(([t, ws]) => ws.sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)).map(w => WD[w]).join('·') + ' ' + t).join(' / ') || '시간 없음';
+}
+function pickPass(name, kind){
+  const ps = state.passes.filter(p => !p.archived && p.name === name);
+  const fit = p => isMoney(p) || (kind === 'pt' ? isPT(p) : /그룹/.test(p.cls || ''));
+  const has = p => isMoney(p) ? moneyLeft(p) > 0 : left(p) > 0;
+  return ps.find(p => fit(p) && has(p)) || ps.find(fit) || ps.find(has) || ps[0] || null;
+}
+function wantedAuto(){
+  const out = new Map();
+  for (let i = 1; i <= HORIZON; i++) {
+    const d = addDays(today(), i);
+    for (const { c, time } of classSlotsOn(d))
+      for (const r of c.roster || []) {
+        if ((r.from || '') > d) continue;
+        if ((c.skips || []).includes(skipKey(d, time, r.name))) continue;
+        out.set(autoId(c, d, time, r.name), { c, date: d, time, name: r.name });
+      }
+  }
+  return out;
+}
+let syncing = null;
+async function syncAuto(){
+  if (syncing) return syncing;
+  syncing = (async () => {
+    const want = wantedAuto(), from = addDays(today(), 1);
+    const have = new Map(state.books.filter(b => b.auto).map(b => [b.id, b]));
+    const ops = [], added = [], removed = new Set();
+    for (const [id, w] of want) {
+      if (have.has(id)) continue;
+      // 같은 날 같은 시간에 손으로 넣은 예약이 있으면 그대로 두기
+      if (state.books.some(b => !b.auto && b.date === w.date && b.time === w.time && b.name === w.name)) continue;
+      const p = pickPass(w.name, w.c.kind); if (!p) continue;
+      const doc = { date: w.date, time: w.time, passId: p.id, name: w.name, cls: p.cls || '', slot: w.c.name, classId: w.c.id, auto: true, notified: false, createdAt: fb.serverTimestamp() };
+      ops.push(b => b.set(fb.doc(db, 'bookings', id), doc)); added.push({ id, ...doc });
+    }
+    // 명단에서 빠졌거나 시간이 바뀐 반의 앞날 예약은 지우기 (이미 알림이 나간 건 남겨 둠)
+    for (const [id, b] of have) if (b.date >= from && !want.has(id) && !b.notified) { ops.push(x => x.delete(fb.doc(db, 'bookings', id))); removed.add(id); }
+    for (let i = 0; i < ops.length; i += 400) { const batch = fb.writeBatch(db); ops.slice(i, i + 400).forEach(f => f(batch)); await batch.commit(); }
+    state.books = state.books.filter(b => !removed.has(b.id)).concat(added);
+    return { added: added.length, removed: removed.size };
+  })();
+  try { return await syncing; } finally { syncing = null; }
+}
+// 최근 4주 예약 기록에서 이 반 시간에 2번 이상 온 회원
+async function recentRegulars(c){
+  const bs = await fb.getDocs(fb.query(fb.collection(db, 'bookings'), fb.where('date', '>=', addDays(today(), -28))));
+  const cnt = {};
+  bs.docs.map(d => d.data()).filter(b => b.date <= today() && (c.sessions || []).some(s => s.wd === wdOf(b.date) && s.time === b.time) && (b.classId ? b.classId === c.id : (b.slot || '') === c.name))
+    .forEach(b => { cnt[b.name] = (cnt[b.name] || 0) + 1; });
+  return Object.entries(cnt).filter(([, n]) => n >= 2).sort((a, b) => b[1] - a[1]);
+}
+// 처음 한 번: 기본 시간표로 반을 만들고, 최근 4주 예약으로 명단을 채워요
+async function seedClasses(){
+  const batch = fb.writeBatch(db), out = [], from = addDays(today(), 1);
+  for (const { id, ...c } of SEED_CLASSES) {
+    const reg = await recentRegulars({ id, ...c });
+    const d = { ...c, roster: reg.map(([name]) => ({ name, from })), skips: [], active: true, createdAt: fb.serverTimestamp() };
+    batch.set(fb.doc(db, 'classes', id), d); out.push({ id, ...d });
+  }
+  await batch.commit(); state.classes = out;
+}
+
 /* ---------- 예약 ---------- */
+const segHtml = () => `<div class="seg" role="tablist"><button data-bv="day" class="${state.bookView === 'day' ? 'on' : ''}">날짜별 예약</button><button data-bv="classes" class="${state.bookView === 'classes' ? 'on' : ''}">반 관리 <span class="num">${actClasses().length}</span></button></div>`;
+const bindSeg = () => app.querySelectorAll('[data-bv]').forEach(b => b.onclick = () => { state.bookView = b.dataset.bv; renderBook(); });
 function renderBook(){
+  if (state.bookView === 'classes') return renderClasses();
   const d = state.bookDate || (state.bookDate = addDays(today(), 1));
-  const list = state.books.filter(b => b.date === d).sort((a, b) => a.time.localeCompare(b.time));
-  const slots = (GROUP_SLOTS[wdOf(d)] || []).map(([t, n]) => ({ t, n }));
-  const times = [...new Set([...slots.map(s => s.t), ...list.map(b => b.time)])].sort();
+  const list = state.books.filter(b => b.date === d);
   const byId = Object.fromEntries(state.passes.map(p => [p.id, p]));
-  app.innerHTML = `
+  const cards = classSlotsOn(d).map(({ c, time }) => ({ c, time, bs: list.filter(b => b.time === time && (b.classId ? b.classId === c.id : (b.slot || '') === c.name)) }));
+  const used = new Set(cards.flatMap(x => x.bs.map(b => b.id)));
+  const extraT = [...new Set(list.filter(b => !used.has(b.id)).map(b => b.time))];
+  extraT.forEach(t => cards.push({ c: null, time: t, bs: list.filter(b => !used.has(b.id) && b.time === t) }));
+  cards.sort((a, b) => a.time.localeCompare(b.time));
+  const total = list.length;
+  const row = (b, c) => { const p = byId[b.passId]; const out = p && (isMoney(p) ? moneyLeft(p) <= 0 : left(p) <= 0); return `<div class="slot-r"><div class="grow">${esc(b.name)}${c && !b.auto ? '<span class="tag gray">이번만 추가</span>' : ''}<span class="sub">${esc(p?.cls || b.cls || '')}${p && !p.phone ? ' · <b class="t-red">번호 없음</b>' : ''}${out ? ' · <b class="t-red">남은 횟수 없음</b>' : ''}${b.notified ? ' · 알림 발송됨' : ''}</span></div>${b.auto ? `<button class="btn line sm" data-skip="${b.id}">이번만 빠짐</button>` : `<button class="btn red sm" data-delb="${b.id}">취소</button>`}</div>`; };
+  app.innerHTML = `${segHtml()}
   <div class="toolbar">
     <button class="btn ghost icon" id="prev" aria-label="전날">‹</button>
     <input type="date" id="bd" value="${d}" style="flex:1">
     <button class="btn ghost icon" id="next" aria-label="다음 날">›</button>
   </div>
-  <div class="sec-row"><h3 class="sec">${fmtDay(d)} 예약 <span>${list.length}명</span></h3><button class="btn sm" id="addB">+ 예약</button></div>
-  <p class="hint">수업 전날 저녁 8시에 예약된 회원에게 '수업 전날 안내' 알림톡이 자동으로 나가요.</p>
-  ${times.length ? times.map(t => {
-    const s = slots.find(x => x.t === t); const bs = list.filter(b => b.time === t);
-    const over = s && bs.length > GROUP_CAP;
-    return `<div class="card slot"><div class="slot-h"><div class="grow"><span class="time">${t}</span><span class="sub">${s ? esc(s.n) : '개인 PT'}</span></div>${s ? `<span class="tag ${over ? 'red' : bs.length ? '' : 'gray'}">${bs.length}/${GROUP_CAP}명${over ? ' 초과' : ''}</span>` : ''}
-      <button class="btn ghost sm" data-addt="${t}">+ 추가</button></div>
-      ${bs.map(b => { const p = byId[b.passId]; return `<div class="slot-r"><div class="grow">${esc(b.name)}<span class="sub">${esc(p?.cls || '')}${p && !p.phone ? ' · <b class="t-red">번호 없음</b>' : ''}${b.notified ? ' · 알림 발송됨' : ''}</span></div><button class="btn red sm" data-delb="${b.id}">취소</button></div>`; }).join('')}
-    </div>`; }).join('') : '<div class="empty">이날은 정해진 그룹 수업이 없어요.<br>+ 예약으로 개인 PT를 넣어 주세요.</div>'}`;
+  <div class="sec-row"><h3 class="sec">${fmtDay(d)} 예약 <span>${total}명</span></h3><button class="btn sm" id="addB">+ 예약</button></div>
+  <p class="hint">반 명단으로 <b class="t-ink">${fmtDay(addDays(today(), HORIZON))}</b>까지 자동 예약돼 있어요. 빠지는 날만 '이번만 빠짐'을 누르세요. 수업 전날 저녁 8시에 알림톡이 나가요.</p>
+  ${cards.length ? cards.map(({ c, time, bs }) => {
+    const cap = c?.cap || 0, over = cap && bs.length > cap;
+    const skipped = c ? (c.skips || []).filter(k => k.startsWith(`${d}|${time}|`)) : [];
+    return `<div class="card slot"><div class="slot-h"><div class="grow"><span class="time">${time}</span><span class="sub">${c ? esc(c.name) : '개인 PT · 따로 넣은 예약'}</span></div>${c && cap ? `<span class="tag ${over ? 'red' : bs.length ? '' : 'gray'}">${bs.length}/${cap}명${over ? ' 초과' : ''}</span>` : ''}
+      <button class="btn ghost sm" data-addt="${time}" data-cls="${c ? c.id : ''}">+ 추가</button></div>
+      ${bs.sort((a, b) => a.name.localeCompare(b.name, 'ko')).map(b => row(b, c)).join('')}
+      ${skipped.map(k => `<div class="slot-r skipped"><div class="grow">${esc(k.split('|')[2])}<span class="sub">이번만 빠짐</span></div><button class="btn ghost sm" data-unskip="${esc(c.id + '|' + k)}">되돌리기</button></div>`).join('')}
+      ${!bs.length && !skipped.length ? '<div class="slot-r"><span class="sub">아직 아무도 없어요. 반 관리에서 명단을 넣어 두면 자동으로 채워져요.</span></div>' : ''}
+    </div>`; }).join('') : '<div class="empty">이날은 수업이 없어요.<br>+ 예약으로 개인 PT를 넣거나, 반 관리에서 시간표를 만들어 주세요.</div>'}`;
+  bindSeg();
   $('#bd').onchange = e => { state.bookDate = e.target.value || addDays(today(), 1); renderBook(); };
   $('#prev').onclick = () => { state.bookDate = addDays(d, -1); renderBook(); };
   $('#next').onclick = () => { state.bookDate = addDays(d, 1); renderBook(); };
-  $('#addB').onclick = () => addBooking(d, '');
-  app.querySelectorAll('[data-addt]').forEach(b => b.onclick = () => addBooking(d, b.dataset.addt));
+  $('#addB').onclick = () => addBooking(d, '', '');
+  app.querySelectorAll('[data-addt]').forEach(b => b.onclick = () => addBooking(d, b.dataset.addt, b.dataset.cls));
   app.querySelectorAll('[data-delb]').forEach(b => b.onclick = () => delBooking(b.dataset.delb));
+  app.querySelectorAll('[data-skip]').forEach(b => b.onclick = () => skipBooking(b.dataset.skip));
+  app.querySelectorAll('[data-unskip]').forEach(b => b.onclick = () => { const [cid, ...k] = b.dataset.unskip.split('|'); unskip(cid, k.join('|')); });
 }
 
-function addBooking(date, time){
+function addBooking(date, time, classId){
   const act = state.passes.filter(p => !p.archived).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-  const slot = (GROUP_SLOTS[wdOf(date)] || []).find(s => s[0] === time);
+  const c = state.classes.find(x => x.id === classId);
   dialog(`
     <div class="name">${fmtDay(date)} 예약 추가</div>
-    <label>시간</label><input id="b_time" type="time" step="1800" value="${time || '10:00'}">
-    <label>회원 (여러 명 선택 가능)</label>
+    ${c ? `<p class="hint">${esc(c.name)} ${esc(time)} 수업에 <b class="t-ink">이번만</b> 넣어요. 매주 오는 회원이면 반 관리에서 명단에 넣으세요.</p>` : '<p class="hint">개인 PT나 이번 한 번만 있는 예약을 넣어요.</p>'}
+    <label for="b_time">시간</label><input id="b_time" type="time" step="1800" value="${time || '10:00'}" ${c ? 'disabled' : ''}>
+    <label for="b_q">회원 (여러 명 선택 가능)</label>
     <input id="b_q" type="search" placeholder="이름 검색" autocomplete="off">
     <div id="b_list" class="picks">${act.map(p => `<label class="pick" data-n="${esc(p.name)}"><input type="checkbox" value="${p.id}"><span class="grow">${esc(p.name)} <span class="sub">${esc(p.cls)} · ${isMoney(p) ? '잔액 ' + won(moneyLeft(p)) : '남음 ' + left(p)}</span></span></label>`).join('')}</div>
-    ${slot ? `<p class="hint">${esc(slot[1])} 수업 시간이에요.</p>` : ''}
     <div class="acts"><span class="grow"></span><button class="btn ghost" id="cn">취소</button><button class="btn" id="sv">예약</button></div>`);
   $('#b_q').oninput = e => document.querySelectorAll('#b_list [data-n]').forEach(l => l.style.display = l.dataset.n.includes(e.target.value.trim()) ? '' : 'none');
   $('#cn').onclick = closeDlg;
@@ -397,15 +514,15 @@ function addBooking(date, time){
     const batch = fb.writeBatch(db); const added = [];
     ids.forEach(id => {
       const p = state.passes.find(x => x.id === id);
-      if (state.books.some(b => b.date === date && b.time === t && b.passId === id)) return;
+      if (state.books.some(b => b.date === date && b.time === t && b.name === p.name)) return;
       const ref = fb.doc(fb.collection(db, 'bookings'));
-      const gs = (GROUP_SLOTS[wdOf(date)] || []).find(x => x[0] === t);
-      const doc = { date, time: t, passId: id, name: p.name, cls: p.cls, slot: gs ? gs[1] : '', notified: false, createdAt: fb.serverTimestamp() };
+      const cc = c || classSlotsOn(date).find(x => x.time === t)?.c;
+      const doc = { date, time: t, passId: id, name: p.name, cls: p.cls, slot: cc ? cc.name : '', ...(cc ? { classId: cc.id } : {}), notified: false, createdAt: fb.serverTimestamp() };
       batch.set(ref, doc); added.push({ id: ref.id, ...doc });
     });
     try { await batch.commit(); } catch(e) { $('#sv').disabled = false; return toast('예약하지 못했어요. 다시 해 주세요'); }
     state.books.push(...added);
-    closeDlg(); toast(`${added.length}명 예약했어요`); renderBook();
+    closeDlg(); toast(added.length ? `${added.length}명 예약했어요` : '이미 예약돼 있어요'); renderBook();
   };
 }
 
@@ -415,6 +532,112 @@ async function delBooking(id){
   await fb.deleteDoc(fb.doc(db, 'bookings', id));
   state.books = state.books.filter(x => x.id !== id);
   toast('예약을 취소했어요'); renderBook();
+}
+// 반 예약에서 이번 한 번만 빼기 (다음 주부터는 그대로)
+async function skipBooking(id){
+  const b = state.books.find(x => x.id === id); const c = state.classes.find(x => x.id === b?.classId);
+  if (!b || !c) return delBooking(id);
+  if (!confirm(`${b.name}님을 ${fmtDay(b.date)} ${b.time} ${c.name}에서 이번만 뺄까요?\n다음 수업부터는 그대로 예약돼요.`)) return;
+  c.skips = [...new Set([...(c.skips || []).filter(k => k.slice(0, 10) >= today()), skipKey(b.date, b.time, b.name)])];
+  const batch = fb.writeBatch(db);
+  batch.update(fb.doc(db, 'classes', c.id), { skips: c.skips });
+  batch.delete(fb.doc(db, 'bookings', id));
+  await batch.commit();
+  state.books = state.books.filter(x => x.id !== id);
+  toast(`${b.name}님 이번만 빠짐`); renderBook();
+}
+async function unskip(classId, key){
+  const c = state.classes.find(x => x.id === classId); if (!c) return;
+  c.skips = (c.skips || []).filter(k => k !== key);
+  await fb.updateDoc(fb.doc(db, 'classes', c.id), { skips: c.skips });
+  await syncAuto(); toast('다시 예약했어요'); renderBook();
+}
+
+/* ---------- 반 관리 ---------- */
+function renderClasses(){
+  const cs = actClasses().slice().sort((a, b) => (a.kind === 'pt') - (b.kind === 'pt') || ((a.sessions?.[0]?.wd + 6) % 7) - ((b.sessions?.[0]?.wd + 6) % 7) || (a.sessions?.[0]?.time || '').localeCompare(b.sessions?.[0]?.time || ''));
+  const card = c => {
+    const ros = c.roster || [], cap = c.cap || 0;
+    return `<div class="card cls"><div class="row"><div class="grow"><div class="name">${esc(c.name)}${c.kind === 'pt' ? '<span class="tag blue">개인 PT</span>' : ''}</div><div class="sub num">${esc(sessLbl(c))}</div></div>
+      <span class="tag ${cap && ros.length > cap ? 'red' : ros.length ? '' : 'gray'}">${ros.length}${cap ? '/' + cap : ''}명</span><button class="btn ghost sm" data-ec="${c.id}">수정</button></div>
+      ${ros.length ? `<div class="roster">${ros.slice().sort((a, b) => a.name.localeCompare(b.name, 'ko')).map(r => { const p = pickPass(r.name, c.kind); const warn = !p ? '이용권 없음' : (isMoney(p) ? moneyLeft(p) <= 0 : left(p) <= 0) ? '남은 횟수 없음' : r.from > addDays(today(), 1) ? fmtDay(r.from) + '부터' : ''; return `<span class="${warn && warn.endsWith('부터') ? '' : warn ? 'warn' : ''}">${esc(r.name)}${warn ? ` <small>${warn}</small>` : ''}</span>`; }).join('')}</div>` : '<p class="hint">명단이 비어 있어요. 수정에서 회원을 넣어 주세요.</p>'}
+    </div>`;
+  };
+  const g = cs.filter(c => c.kind !== 'pt'), t = cs.filter(c => c.kind === 'pt');
+  app.innerHTML = `${segHtml()}
+  <div class="sec-row"><h3 class="sec">반 <span>${cs.length}개</span></h3><button class="btn sm" id="addC">+ 새 반</button></div>
+  <p class="hint">반에 회원을 한 번 넣어 두면 매주 예약이 자동으로 들어가요(${HORIZON}일 앞까지). 개인 PT도 정해진 시간이 있으면 1인 반으로 만들어 두세요.</p>
+  <h3 class="sec">그룹 수업 <span>${g.length}</span></h3>${g.map(card).join('') || '<div class="empty">그룹 수업 반이 없어요</div>'}
+  <h3 class="sec">개인 PT 고정 시간 <span>${t.length}</span></h3>${t.map(card).join('') || '<div class="empty">고정 시간이 있는 개인 PT 회원은 1인 반으로 만들어 두면 매주 자동 예약돼요.</div>'}`;
+  bindSeg();
+  $('#addC').onclick = () => editClass(null);
+  app.querySelectorAll('[data-ec]').forEach(b => b.onclick = () => editClass(state.classes.find(c => c.id === b.dataset.ec)));
+}
+
+async function editClass(c){
+  const isNew = !c;
+  c = c || { name: '', kind: 'group', cap: 6, sessions: [{ wd: 2, time: '10:00' }], roster: [] };
+  const names = [...new Set(state.passes.filter(p => !p.archived).map(p => p.name))].sort((a, b) => a.localeCompare(b, 'ko'));
+  const inRos = new Set((c.roster || []).map(r => r.name));
+  // 시간을 기준으로 요일을 묶어서 줄 하나로
+  const byT = {}; (c.sessions || []).forEach(s => (byT[s.time] = byT[s.time] || []).push(s.wd));
+  const rows = Object.entries(byT).map(([time, wds]) => ({ time, wds }));
+  const rowHtml = (r, i) => `<div class="sess" data-row="${i}"><div class="wds">${[1, 2, 3, 4, 5, 6, 0].map(w => `<button type="button" data-wd="${w}" class="${r.wds.includes(w) ? 'on' : ''}" aria-pressed="${r.wds.includes(w)}">${WD[w]}</button>`).join('')}</div><input type="time" step="1800" value="${r.time}" aria-label="시간"><button type="button" class="btn line sm" data-rmrow aria-label="이 시간 지우기">－</button></div>`;
+  dialog(`
+    <div class="name">${isNew ? '새 반 만들기' : esc(c.name) + ' 수정'}</div>
+    <label for="c_name">반 이름</label><input id="c_name" value="${esc(c.name)}" placeholder="예) 케틀벨 그룹 PT, 박서윤 PT">
+    <div class="row g8"><div class="grow"><label for="c_kind">종류</label><select id="c_kind"><option value="group" ${c.kind !== 'pt' ? 'selected' : ''}>그룹 수업</option><option value="pt" ${c.kind === 'pt' ? 'selected' : ''}>개인 PT (고정 시간)</option></select></div>
+      <div style="flex:0 0 110px"><label for="c_cap">정원</label><input id="c_cap" type="number" inputmode="numeric" min="1" value="${c.cap || ''}"></div></div>
+    <label>요일과 시간</label><div id="c_rows">${rows.map(rowHtml).join('')}</div>
+    <button type="button" class="btn line sm" id="c_addrow" style="margin-top:8px">+ 다른 시간 추가</button>
+    <label for="c_q">명단 <span class="t-mut" id="c_cnt"></span></label>
+    <div id="c_rec" class="hint"></div>
+    <input id="c_q" type="search" placeholder="이름 검색" autocomplete="off">
+    <div id="c_list" class="picks">${names.map(n => `<label class="pick" data-n="${esc(n)}"><input type="checkbox" value="${esc(n)}" ${inRos.has(n) ? 'checked' : ''}><span class="grow">${esc(n)}</span></label>`).join('')}</div>
+    <label for="c_from">새로 넣는 회원은 이날부터 예약</label><input id="c_from" type="date" value="${addDays(today(), 1)}">
+    <div class="acts">${isNew ? '' : '<button class="btn red" id="c_del">반 없애기</button>'}<span class="grow"></span><button class="btn ghost" id="cn">닫기</button><button class="btn" id="sv">저장</button></div>`);
+  const cnt = () => { $('#c_cnt').textContent = `${document.querySelectorAll('#c_list input:checked').length}명`; };
+  const bindRows = () => {
+    document.querySelectorAll('#c_rows [data-wd]').forEach(b => b.onclick = () => { b.classList.toggle('on'); b.setAttribute('aria-pressed', b.classList.contains('on')); });
+    document.querySelectorAll('#c_rows [data-rmrow]').forEach(b => b.onclick = () => { if (document.querySelectorAll('#c_rows .sess').length > 1) b.closest('.sess').remove(); });
+  };
+  bindRows(); cnt();
+  $('#c_addrow').onclick = () => { $('#c_rows').insertAdjacentHTML('beforeend', rowHtml({ time: '10:00', wds: [] }, Date.now())); bindRows(); };
+  $('#c_list').onchange = cnt;
+  $('#c_q').oninput = e => document.querySelectorAll('#c_list [data-n]').forEach(l => l.style.display = l.dataset.n.includes(e.target.value.trim()) ? '' : 'none');
+  $('#cn').onclick = closeDlg;
+  if (!isNew) recentRegulars(c).then(reg => {
+    const miss = reg.filter(([n]) => !inRos.has(n) && names.includes(n));
+    if (!miss.length || !$('#c_rec')) return;
+    $('#c_rec').innerHTML = `최근 4주 이 시간에 자주 온 회원: ${miss.map(([n, k]) => `<b class="t-ink">${esc(n)}</b>(${k}회)`).join(', ')} <button type="button" class="btn ghost sm" id="c_recAdd">명단에 넣기</button>`;
+    $('#c_recAdd').onclick = () => { miss.forEach(([n]) => { const i = [...document.querySelectorAll('#c_list input')].find(x => x.value === n); if (i) i.checked = true; }); cnt(); $('#c_rec').textContent = ''; };
+  }).catch(() => {});
+  if ($('#c_del')) $('#c_del').onclick = async () => {
+    if (!confirm(`${c.name} (${sessLbl(c)}) 반을 없앨까요?\n내일부터의 자동 예약도 지워져요. 지난 기록과 계획은 남아요.`)) return;
+    await fb.updateDoc(fb.doc(db, 'classes', c.id), { active: false });
+    c.active = false; const r = await syncAuto();
+    closeDlg(); toast(`반을 없앴어요 · 예약 ${r.removed}개 지움`); renderBook();
+  };
+  $('#sv').onclick = async () => {
+    if ($('#sv').disabled) return;
+    const name = $('#c_name').value.trim();
+    const sessions = [...document.querySelectorAll('#c_rows .sess')].flatMap(r => { const t = r.querySelector('input[type=time]').value; return t ? [...r.querySelectorAll('[data-wd].on')].map(b => ({ wd: +b.dataset.wd, time: t })) : []; });
+    const uniq = [...new Map(sessions.map(x => [x.wd + x.time, x])).values()];
+    if (!name) return toast('반 이름을 넣어 주세요');
+    if (!uniq.length) return toast('요일과 시간을 하나 이상 골라 주세요');
+    const from = $('#c_from').value || addDays(today(), 1);
+    const picked = [...document.querySelectorAll('#c_list input:checked')].map(i => i.value);
+    const old = Object.fromEntries((c.roster || []).map(r => [r.name, r]));
+    const roster = picked.map(n => old[n] || { name: n, from });
+    const d = { name, kind: $('#c_kind').value, cap: +$('#c_cap').value || 0, sessions: uniq, roster, skips: (c.skips || []).filter(k => k.slice(0, 10) >= today()) };
+    $('#sv').disabled = true;
+    try {
+      if (isNew) { const ref = await fb.addDoc(fb.collection(db, 'classes'), { ...d, active: true, createdAt: fb.serverTimestamp() }); state.classes.push({ id: ref.id, ...d, active: true }); }
+      else { await fb.updateDoc(fb.doc(db, 'classes', c.id), d); Object.assign(c, d); }
+      const r = await syncAuto();
+      closeDlg(); toast(`저장했어요${r.added || r.removed ? ` · 예약 ${r.added ? '+' + r.added : ''}${r.added && r.removed ? ' / ' : ''}${r.removed ? '−' + r.removed : ''}` : ''}`); renderBook();
+    } catch(e) { $('#sv').disabled = false; toast('저장하지 못했어요. 다시 해 주세요'); }
+  };
 }
 
 function passList(list, withBtn){
@@ -788,7 +1011,7 @@ function weekGroupClasses(wk){
   for (let i = 0; i < 7; i++) {
     const day = addDays(wk, i);
     // 요일·타임마다 카드 하나 (다른 요일·타임 계획은 편집 창에서 불러오기)
-    (GROUP_SLOTS[wdOf(day)] || []).forEach(([t, n]) => out.push({ group: n, day, days: [day], time: t, times: [t] }));
+    classSlotsOn(day).filter(x => x.c.kind !== 'pt').forEach(({ c, time }) => out.push({ group: c.name, day, days: [day], time, times: [time] }));
   }
   return out;
 }
