@@ -615,12 +615,13 @@ async function renderSched(){
     <p class="hint tt-legend"><i class="g"></i>그룹 수업 <i class="pt"></i>개인 PT 반 <i class="x"></i>따로 넣은 예약 <i class="due"></i>기록 전</p>` : '';
   app.innerHTML = `${segHtml()}${classErrHtml()}
   <div class="toolbar"><button class="btn ghost icon" id="pp" aria-label="지난주">‹</button><div class="wk-t">${fmtDay(wk)} 주${wk === weekStart(today()) ? ' <span class="tag">이번 주</span>' : ''}</div><button class="btn ghost icon" id="pn" aria-label="다음 주">›</button></div>
-  <div class="view-row"><span class="grow hint" style="margin:0">칸을 누르면 명단·계획·기록을 봐요</span><div class="mini-seg"><button data-sm="grid" class="${state.schedMode !== 'list' ? 'on' : ''}">표</button><button data-sm="list" class="${state.schedMode === 'list' ? 'on' : ''}">목록</button></div></div>
+  <div class="view-row"><span class="grow hint" style="margin:0">칸을 누르면 명단·계획·기록을 봐요</span><button class="btn sm" id="bkAdd">+ 예약</button><div class="mini-seg"><button data-sm="grid" class="${state.schedMode !== 'list' ? 'on' : ''}">표</button><button data-sm="list" class="${state.schedMode === 'list' ? 'on' : ''}">목록</button></div></div>
   ${(state.schedMode === 'list' ? dayHtml : grid) || '<div class="empty">이번 주는 수업이 없어요. 반 관리에서 시간표를 만들어 주세요.</div>'}
   <h3 class="sec">개인 PT 이번 주 계획 <span>${ptDone.length}/${ptNames.length}명</span></h3>
   <div class="list">${ptNames.map(n => { const ps = plans.filter(x => x.member === n).sort((a, b) => (a.day || '9').localeCompare(b.day || '9')); return `<div class="item"><button class="who" data-np="${esc(n)}"><span class="nm">${esc(n)}${ps.length ? '' : '<span class="tag amber">아직 안 짬</span>'}</span><span class="meta">${ps.map(x => (x.day ? fmtDay(x.day) : '요일 미정') + (x.title ? ' ' + esc(x.title) : '') + (x.done ? ' ✓' : '')).join(' · ') || '이번 주 계획 없음'}</span></button><button class="btn ghost sm" data-np2="${esc(n)}">+ 계획</button></div>`; }).join('') || '<div class="item"><span class="sub">개인 PT 회원이 없어요</span></div>'}</div>`;
   bindSeg();
   app.querySelectorAll('[data-sm]').forEach(b => b.onclick = () => { state.schedMode = b.dataset.sm; refresh(); });
+  $('#bkAdd').onclick = () => addBooking(wk <= today() && today() <= addDays(wk, 6) ? today() : wk, '', '', true);
   // 휴대폰에서 표가 넓으면 오늘 칸이 보이게 밀어 두기
   const tw = app.querySelector('.tt-wrap'), nowTh = app.querySelector('.tt thead th.now');
   if (tw && nowTh && tw.scrollWidth > tw.clientWidth) tw.scrollLeft = Math.max(0, nowTh.offsetLeft - 66);
@@ -692,11 +693,12 @@ async function openSession(d, key){
   if ($('#s_done')) $('#s_done').onclick = () => groupDone(x, d, [d], s.time, c.name);
 }
 
-function addBooking(date, time, classId){
+function addBooking(date, time, classId, pickDate){
   const act = state.passes.filter(p => !p.archived).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
   const c = state.classes.find(x => x.id === classId);
   dialog(`
-    <div class="name">${fmtDay(date)} 예약 추가</div>
+    <div class="name">${pickDate ? '예약 추가' : fmtDay(date) + ' 예약 추가'}</div>
+    ${pickDate ? `<label for="b_date">날짜</label><input id="b_date" type="date" value="${date}">` : ''}
     ${c ? `<p class="hint">${esc(c.name)} ${esc(time)} 수업에 <b class="t-ink">이번만</b> 넣어요. 매주 오는 회원이면 반 관리에서 명단에 넣으세요.</p>` : '<p class="hint">개인 PT나 이번 한 번만 있는 예약을 넣어요.</p>'}
     <label for="b_time">시간</label><input id="b_time" type="time" step="1800" value="${time || '10:00'}" ${c ? 'disabled' : ''}>
     <label for="b_q">회원 (여러 명 선택 가능)</label>
@@ -707,6 +709,7 @@ function addBooking(date, time, classId){
   $('#cn').onclick = closeDlg;
   $('#sv').onclick = async () => {
     if ($('#sv').disabled) return;
+    if (pickDate) date = $('#b_date').value || date;
     const t = $('#b_time').value; const ids = [...document.querySelectorAll('#b_list input:checked')].map(i => i.value);
     if (!t || !ids.length) return toast('시간과 회원을 골라 주세요');
     $('#sv').disabled = true;
@@ -1428,6 +1431,7 @@ async function editPlan(member, wk, ex, group, fixedDays, time, weekPlans, base)
     ${sibs.length ? `<label>이번 주 다른 요일·타임 계획 불러오기</label><div class="chipset">${sibs.map(y => `<button data-sib="${y.id}">${esc(shortWd(y.day))} ${esc(y.time || '공통')}${y.title ? ' · ' + esc(y.title) : ''}</button>`).join('')}</div>` : ''}
     <label style="${group ? 'display:none' : ''}">수업 요일 (모르면 비워 두세요)</label>
     <select id="p_d" style="${group ? 'display:none' : ''}"><option value="">요일 미정</option>${days.map(d => `<option value="${d}" ${x.day === d ? 'selected' : ''}>${fmtDay(d)}</option>`).join('')}</select>
+    ${group ? '' : `<label for="p_tm">수업 시간 (넣으면 예약도 같이 잡혀요)</label><input id="p_tm" type="time" step="1800" value="${esc(x.time || (state.books.find(b => b.name === member && b.date === x.day) || {}).time || '')}">`}
     <label>제목 (선택, 예: 하체·코어)</label><input id="p_t" value="${esc(x.title || '')}">
     ${last ? `<div class="wk soft"><div class="d"><span>지난 ${group ? '같은 수업' : '수업'} · ${esc(wkDay(last))}</span><button class="btn ghost sm" id="p_last">불러오기</button></div><ul>${(last.items || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>` : ''}
     ${prev ? `<div class="row" style="margin-top:6px"><span class="grow hint">지난 계획 (${prev.day ? esc(fmtDay(prev.day)) : esc(fmtDay(prev.week)) + ' 주'})</span><button class="btn ghost sm" id="p_prev">불러오기</button></div>` : ''}
@@ -1447,10 +1451,25 @@ async function editPlan(member, wk, ex, group, fixedDays, time, weekPlans, base)
   $('#sv').onclick = async () => {
     const items = ta.value.split('\n').map(t => t.trim()).filter(Boolean);
     if (!items.length) return toast('운동을 한 줄 이상 적어 주세요');
-    const d = { member: member || '', group: group || '', week: wk, day: group ? fixedDay : $('#p_d').value, ...(group ? { days: fixedDays, time: ex ? (ex.time || '') : time } : {}), title: $('#p_t').value.trim(), items, homework: $('#p_h').value.trim() };
+    const ptTime = group ? '' : ($('#p_tm').value || '');
+    const d = { member: member || '', group: group || '', week: wk, day: group ? fixedDay : $('#p_d').value, ...(group ? { days: fixedDays, time: ex ? (ex.time || '') : time } : { time: ptTime }), title: $('#p_t').value.trim(), items, homework: $('#p_h').value.trim() };
+    if (!group && ptTime && !d.day) return toast('시간을 넣으려면 요일도 골라 주세요');
+    if (!group && ptTime && d.day) {
+      // 개인 PT 예약: 그날 예약이 있으면 시간만 바꾸고, 없으면 새로 만들기
+      const old = state.books.find(b => b.name === member && b.date === d.day && !b.classId);
+      const p = state.passes.filter(q => !q.archived && q.name === member).sort((a, b) => (isPT(b) || isMoney(b)) - (isPT(a) || isMoney(a)))[0];
+      try {
+        if (old) { if (old.time !== ptTime) { await fb.updateDoc(fb.doc(db, 'bookings', old.id), { time: ptTime, notified: false }); old.time = ptTime; old.notified = false; } }
+        else if (p) {
+          const ref = fb.doc(fb.collection(db, 'bookings'));
+          const bk = { date: d.day, time: ptTime, passId: p.id, name: p.name, cls: p.cls, slot: '', notified: false, createdAt: fb.serverTimestamp() };
+          await fb.setDoc(ref, bk); state.books.push({ id: ref.id, ...bk });
+        }
+      } catch(e) { return toast('예약을 잡지 못했어요. 다시 해 주세요'); }
+    }
     if (ex) await fb.updateDoc(fb.doc(db, 'plans', ex.id), d);
     else await fb.addDoc(fb.collection(db, 'plans'), { ...d, done: false, createdAt: fb.serverTimestamp() });
-    closeDlg(); toast('계획을 저장했어요'); refresh();
+    closeDlg(); toast(!group && ptTime ? `계획 저장 · ${fmtDay(d.day)} ${ptTime} 예약했어요` : '계획을 저장했어요'); refresh();
   };
 }
 
